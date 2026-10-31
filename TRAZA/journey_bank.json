@@ -1,0 +1,730 @@
+{
+  "version": "4.0",
+  "routes": [
+    {
+      "id": "basico",
+      "name": "Básico",
+      "description": "Un primer recorrido por tus experiencias, reacciones, ánimo, ansiedad y apoyos.",
+      "minutes": [
+        10,
+        15
+      ],
+      "form_ids": [
+        "PCPTSD5",
+        "PHQ9",
+        "GAD7",
+        "APOYOS"
+      ],
+      "conditional_forms": []
+    },
+    {
+      "id": "intermedio",
+      "name": "Intermedio",
+      "description": "Amplía el recorrido con síntomas de estrés, impacto cotidiano y apoyo social.",
+      "minutes": [
+        20,
+        30
+      ],
+      "form_ids": [
+        "PCPTSD5",
+        "PHQ9",
+        "GAD7",
+        "APOYOS",
+        "ITQ",
+        "MSPSS"
+      ],
+      "conditional_forms": []
+    },
+    {
+      "id": "completo",
+      "name": "Completo",
+      "description": "Mayor cobertura de experiencias y funcionamiento. Las preguntas sobre consumo aparecen cuando eliges explorarlas.",
+      "minutes": [
+        35,
+        50
+      ],
+      "form_ids": [
+        "PCPTSD5",
+        "PHQ9",
+        "GAD7",
+        "APOYOS",
+        "ITQ",
+        "MSPSS",
+        "LEC5",
+        "DEST",
+        "ASRS6",
+        "BRSCL",
+        "ECR12CL"
+      ],
+      "conditional_forms": [
+        {
+          "id": "SOCRATES8A",
+          "show_if": {
+            "all": [
+              {
+                "id": "INCLUDE_SUBSTANCES",
+                "equals": 1
+              },
+              {
+                "id": "USE_ALCOHOL",
+                "equals": 1
+              }
+            ]
+          }
+        },
+        {
+          "id": "SOCRATES",
+          "show_if": {
+            "all": [
+              {
+                "id": "INCLUDE_SUBSTANCES",
+                "equals": 1
+              },
+              {
+                "any": [
+                  {
+                    "id": "USE_DRUGS",
+                    "equals": 1
+                  },
+                  {
+                    "id": "USE_COCAINE",
+                    "equals": 1
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "CCQBRIEF",
+          "show_if": {
+            "all": [
+              {
+                "id": "INCLUDE_SUBSTANCES",
+                "equals": 1
+              },
+              {
+                "id": "USE_COCAINE",
+                "equals": 1
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "context_questions": [
+    {
+      "id": "S1",
+      "block": "safety",
+      "text": "¿Estás en un lugar donde te sientes a salvo ahora?",
+      "hint": "Piensa en tu seguridad física en este momento.",
+      "type": "single",
+      "options": [
+        {
+          "value": 1,
+          "label": "Sí, estoy a salvo"
+        },
+        {
+          "value": 0,
+          "label": "No, hay peligro ahora"
+        },
+        {
+          "value": 99,
+          "label": "No estoy seguro/a"
+        },
+        {
+          "value": 98,
+          "label": "Prefiero no responder"
+        }
+      ],
+      "origin": "TRAZA original; no escala clínica validada"
+    },
+    {
+      "id": "S2",
+      "block": "safety",
+      "text": "¿Qué tan intenso es tu malestar ahora?",
+      "hint": "0 es nada de malestar; 10 es más de lo que puedes manejar ahora.",
+      "type": "range",
+      "min": 0,
+      "max": 10,
+      "options": [
+        {
+          "value": 0,
+          "label": "0 · Nada"
+        },
+        {
+          "value": 1,
+          "label": "1"
+        },
+        {
+          "value": 2,
+          "label": "2"
+        },
+        {
+          "value": 3,
+          "label": "3"
+        },
+        {
+          "value": 4,
+          "label": "4"
+        },
+        {
+          "value": 5,
+          "label": "5"
+        },
+        {
+          "value": 6,
+          "label": "6"
+        },
+        {
+          "value": 7,
+          "label": "7"
+        },
+        {
+          "value": 8,
+          "label": "8"
+        },
+        {
+          "value": 9,
+          "label": "9"
+        },
+        {
+          "value": 10,
+          "label": "10 · Demasiado ahora"
+        },
+        {
+          "value": 99,
+          "label": "No sé"
+        },
+        {
+          "value": 98,
+          "label": "Prefiero no responder"
+        }
+      ],
+      "origin": "TRAZA original; no escala clínica validada"
+    },
+    {
+      "id": "S3",
+      "block": "safety",
+      "text": "¿Hay riesgo de que te hagas daño ahora o en las próximas horas?",
+      "hint": "No tienes que explicar cómo ni dar detalles.",
+      "type": "single",
+      "options": [
+        {
+          "value": 0,
+          "label": "No"
+        },
+        {
+          "value": 1,
+          "label": "Sí"
+        },
+        {
+          "value": 99,
+          "label": "No estoy seguro/a"
+        },
+        {
+          "value": 98,
+          "label": "Prefiero no responder"
+        }
+      ],
+      "origin": "TRAZA original; no escala clínica validada"
+    },
+    {
+      "id": "E1",
+      "block": "experiences",
+      "text": "¿Viviste amenazas o situaciones en las que temiste por tu seguridad?",
+      "type": "single",
+      "sensitive": true,
+      "evidence_values": [
+        1
+      ],
+      "options": [
+        {
+          "value": 0,
+          "label": "No"
+        },
+        {
+          "value": 1,
+          "label": "Sí"
+        },
+        {
+          "value": 99,
+          "label": "No estoy seguro/a"
+        },
+        {
+          "value": 98,
+          "label": "Prefiero no responder"
+        }
+      ],
+      "origin": "TRAZA original; no escala clínica validada"
+    },
+    {
+      "id": "E2",
+      "block": "experiences",
+      "text": "¿Alguien te humilló, te menospreció o te controló de forma que te hizo daño?",
+      "type": "single",
+      "sensitive": true,
+      "evidence_values": [
+        1
+      ],
+      "options": [
+        {
+          "value": 0,
+          "label": "No"
+        },
+        {
+          "value": 1,
+          "label": "Sí"
+        },
+        {
+          "value": 99,
+          "label": "No estoy seguro/a"
+        },
+        {
+          "value": 98,
+          "label": "Prefiero no responder"
+        }
+      ],
+      "origin": "TRAZA original; no escala clínica validada"
+    },
+    {
+      "id": "E3",
+      "block": "experiences",
+      "text": "Cuando necesitabas cuidado o protección, ¿faltó alguien que pudiera dártelos?",
+      "hint": "Marca solo una experiencia que tú reconozcas. No se asume que esto haya ocurrido.",
+      "type": "single",
+      "sensitive": true,
+      "evidence_values": [
+        1
+      ],
+      "options": [
+        {
+          "value": 0,
+          "label": "No"
+        },
+        {
+          "value": 1,
+          "label": "Sí"
+        },
+        {
+          "value": 99,
+          "label": "No estoy seguro/a"
+        },
+        {
+          "value": 98,
+          "label": "Prefiero no responder"
+        }
+      ],
+      "origin": "TRAZA original; no escala clínica validada"
+    },
+    {
+      "id": "E4",
+      "block": "experiences",
+      "text": "¿Alguien te golpeó o te lastimó físicamente?",
+      "type": "single",
+      "sensitive": true,
+      "evidence_values": [
+        1
+      ],
+      "options": [
+        {
+          "value": 0,
+          "label": "No"
+        },
+        {
+          "value": 1,
+          "label": "Sí"
+        },
+        {
+          "value": 99,
+          "label": "No estoy seguro/a"
+        },
+        {
+          "value": 98,
+          "label": "Prefiero no responder"
+        }
+      ],
+      "origin": "TRAZA original; no escala clínica validada"
+    },
+    {
+      "id": "E5",
+      "block": "experiences",
+      "text": "¿Alguien te presionó o te obligó a un contacto sexual que no querías?",
+      "hint": "Puedes pasar esta pregunta. No se pedirán detalles.",
+      "type": "single",
+      "sensitive": true,
+      "evidence_values": [
+        1
+      ],
+      "options": [
+        {
+          "value": 0,
+          "label": "No"
+        },
+        {
+          "value": 1,
+          "label": "Sí"
+        },
+        {
+          "value": 99,
+          "label": "No estoy seguro/a"
+        },
+        {
+          "value": 98,
+          "label": "Prefiero no responder"
+        }
+      ],
+      "origin": "TRAZA original; no escala clínica validada"
+    },
+    {
+      "id": "E6",
+      "block": "experiences",
+      "text": "¿Presenciaste violencia entre personas cercanas o dentro de tu hogar?",
+      "type": "single",
+      "sensitive": true,
+      "evidence_values": [
+        1
+      ],
+      "options": [
+        {
+          "value": 0,
+          "label": "No"
+        },
+        {
+          "value": 1,
+          "label": "Sí"
+        },
+        {
+          "value": 99,
+          "label": "No estoy seguro/a"
+        },
+        {
+          "value": 98,
+          "label": "Prefiero no responder"
+        }
+      ],
+      "origin": "TRAZA original; no escala clínica validada"
+    },
+    {
+      "id": "E7",
+      "block": "experiences",
+      "text": "¿Viviste una pérdida, separación o abandono que te resultó muy difícil?",
+      "type": "single",
+      "sensitive": true,
+      "evidence_values": [
+        1
+      ],
+      "options": [
+        {
+          "value": 0,
+          "label": "No"
+        },
+        {
+          "value": 1,
+          "label": "Sí"
+        },
+        {
+          "value": 99,
+          "label": "No estoy seguro/a"
+        },
+        {
+          "value": 98,
+          "label": "Prefiero no responder"
+        }
+      ],
+      "origin": "TRAZA original; no escala clínica validada"
+    },
+    {
+      "id": "E8",
+      "block": "experiences",
+      "text": "¿Viviste un accidente, una enfermedad grave, un desastre o un delito que te afectó?",
+      "type": "single",
+      "sensitive": true,
+      "evidence_values": [
+        1
+      ],
+      "options": [
+        {
+          "value": 0,
+          "label": "No"
+        },
+        {
+          "value": 1,
+          "label": "Sí"
+        },
+        {
+          "value": 99,
+          "label": "No estoy seguro/a"
+        },
+        {
+          "value": 98,
+          "label": "Prefiero no responder"
+        }
+      ],
+      "origin": "TRAZA original; no escala clínica validada"
+    },
+    {
+      "id": "E9",
+      "block": "experiences",
+      "text": "¿Te retuvieron o te internaron contra tu voluntad en condiciones que te hicieron daño?",
+      "hint": "No se pide decir dónde ni quién estuvo involucrado.",
+      "type": "single",
+      "sensitive": true,
+      "evidence_values": [
+        1
+      ],
+      "options": [
+        {
+          "value": 0,
+          "label": "No"
+        },
+        {
+          "value": 1,
+          "label": "Sí"
+        },
+        {
+          "value": 99,
+          "label": "No estoy seguro/a"
+        },
+        {
+          "value": 98,
+          "label": "Prefiero no responder"
+        }
+      ],
+      "origin": "TRAZA original; no escala clínica validada"
+    },
+    {
+      "id": "E10",
+      "block": "experiences",
+      "text": "¿Viviste acoso, rechazo o trato injusto repetido por alguna característica tuya?",
+      "hint": "No necesitas indicar qué característica ni identificar a nadie.",
+      "type": "single",
+      "sensitive": true,
+      "evidence_values": [
+        1
+      ],
+      "options": [
+        {
+          "value": 0,
+          "label": "No"
+        },
+        {
+          "value": 1,
+          "label": "Sí"
+        },
+        {
+          "value": 99,
+          "label": "No estoy seguro/a"
+        },
+        {
+          "value": 98,
+          "label": "Prefiero no responder"
+        }
+      ],
+      "origin": "TRAZA original; no escala clínica validada"
+    },
+    {
+      "id": "EC",
+      "block": "experiences",
+      "text": "Las experiencias que marcaste, ¿en qué etapa ocurrieron?",
+      "hint": "No necesitas dar fechas ni edades exactas.",
+      "type": "single",
+      "sensitive": true,
+      "show_if": {
+        "any": [
+          {
+            "id": "E1",
+            "equals": 1
+          },
+          {
+            "id": "E2",
+            "equals": 1
+          },
+          {
+            "id": "E3",
+            "equals": 1
+          },
+          {
+            "id": "E4",
+            "equals": 1
+          },
+          {
+            "id": "E5",
+            "equals": 1
+          },
+          {
+            "id": "E6",
+            "equals": 1
+          },
+          {
+            "id": "E7",
+            "equals": 1
+          },
+          {
+            "id": "E8",
+            "equals": 1
+          },
+          {
+            "id": "E9",
+            "equals": 1
+          },
+          {
+            "id": "E10",
+            "equals": 1
+          }
+        ]
+      },
+      "options": [
+        {
+          "value": 1,
+          "label": "Antes de los 18 años"
+        },
+        {
+          "value": 2,
+          "label": "A partir de los 18 años"
+        },
+        {
+          "value": 3,
+          "label": "En ambas etapas"
+        },
+        {
+          "value": 99,
+          "label": "No sé"
+        },
+        {
+          "value": 98,
+          "label": "Prefiero no responder"
+        }
+      ],
+      "origin": "TRAZA original; no escala clínica validada"
+    },
+    {
+      "id": "INCLUDE_SUBSTANCES",
+      "text": "¿Quieres incluir preguntas sobre consumo de alcohol u otras sustancias?",
+      "hint": "Elige No para continuar sin preguntas sobre consumo.",
+      "type": "single",
+      "block": "consumption_context",
+      "route_ids": [
+        "completo"
+      ],
+      "origin": "TRAZA original; filtro de temas, no evidencia de consumo",
+      "options": [
+        {
+          "value": 0,
+          "label": "No, continuar sin ese tema"
+        },
+        {
+          "value": 1,
+          "label": "Sí, elegir qué temas incluir"
+        }
+      ]
+    },
+    {
+      "id": "USE_ALCOHOL",
+      "text": "Si forma parte de tu experiencia, ¿quieres incluir preguntas sobre tu relación con el consumo de alcohol?",
+      "type": "single",
+      "block": "consumption_context",
+      "route_ids": [
+        "completo"
+      ],
+      "origin": "TRAZA original; contexto de selección, no diagnóstico ni evidencia de consumo problemático",
+      "options": [
+        {
+          "value": 0,
+          "label": "No"
+        },
+        {
+          "value": 1,
+          "label": "Sí"
+        },
+        {
+          "value": 98,
+          "label": "Prefiero no responder"
+        },
+        {
+          "value": 99,
+          "label": "No sé"
+        }
+      ],
+      "show_if": {
+        "id": "INCLUDE_SUBSTANCES",
+        "equals": 1
+      }
+    },
+    {
+      "id": "USE_DRUGS",
+      "text": "Si forma parte de tu experiencia, ¿quieres incluir preguntas sobre tu relación con el consumo de otras drogas?",
+      "type": "single",
+      "block": "consumption_context",
+      "route_ids": [
+        "completo"
+      ],
+      "origin": "TRAZA original; contexto de selección, no diagnóstico ni evidencia de consumo problemático",
+      "options": [
+        {
+          "value": 0,
+          "label": "No"
+        },
+        {
+          "value": 1,
+          "label": "Sí"
+        },
+        {
+          "value": 98,
+          "label": "Prefiero no responder"
+        },
+        {
+          "value": 99,
+          "label": "No sé"
+        }
+      ],
+      "show_if": {
+        "id": "INCLUDE_SUBSTANCES",
+        "equals": 1
+      }
+    },
+    {
+      "id": "USE_COCAINE",
+      "text": "Si forma parte de tu experiencia, ¿quieres incluir preguntas sobre tu relación con el consumo de cocaína?",
+      "type": "single",
+      "block": "consumption_context",
+      "route_ids": [
+        "completo"
+      ],
+      "origin": "TRAZA original; contexto de selección, no diagnóstico ni evidencia de consumo problemático",
+      "options": [
+        {
+          "value": 0,
+          "label": "No"
+        },
+        {
+          "value": 1,
+          "label": "Sí"
+        },
+        {
+          "value": 98,
+          "label": "Prefiero no responder"
+        },
+        {
+          "value": 99,
+          "label": "No sé"
+        }
+      ],
+      "show_if": {
+        "id": "INCLUDE_SUBSTANCES",
+        "equals": 1
+      }
+    }
+  ],
+  "references": [
+    {
+      "title": "Cómo se evalúa el TEPT · National Center for PTSD",
+      "url": "https://www.ptsd.va.gov/understand/isitptsd/measured_how.asp"
+    },
+    {
+      "title": "Trastorno por estrés postraumático · NIMH",
+      "url": "https://www.nimh.nih.gov/health/publications/post-traumatic-stress-disorder-ptsd"
+    }
+  ]
+}
