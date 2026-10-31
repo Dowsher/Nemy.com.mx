@@ -1,0 +1,896 @@
+{
+  "version": "2.0.0",
+  "fields": [
+    {
+      "key": "id",
+      "label": "Identificador anónimo (sin nombre)",
+      "group": "Identificación y demografía",
+      "type": "text",
+      "options": null,
+      "range": null,
+      "default": "SUJ-000"
+    },
+    {
+      "key": "edad",
+      "label": "Años. Alcance: adultos >= 18",
+      "group": "Identificación y demografía",
+      "type": "integer",
+      "options": null,
+      "range": [
+        18,
+        100
+      ],
+      "default": 30
+    },
+    {
+      "key": "sexo",
+      "label": "Sexo",
+      "group": "Identificación y demografía",
+      "type": "enum",
+      "options": [
+        "M",
+        "F",
+        "otro"
+      ],
+      "range": null,
+      "default": "M"
+    },
+    {
+      "key": "hsh_o_mujer_trans",
+      "label": "Hombre que tiene sexo con hombres o mujer trans (dato opcional del modelo)",
+      "group": "Identificación y demografía",
+      "type": "boolean",
+      "options": null,
+      "range": null,
+      "default": false
+    },
+    {
+      "key": "embarazo",
+      "label": "Embarazo actual",
+      "group": "Identificación y demografía",
+      "type": "boolean",
+      "options": null,
+      "range": null,
+      "default": false
+    },
+    {
+      "key": "lactancia",
+      "label": "Lactancia actual",
+      "group": "Identificación y demografía",
+      "type": "boolean",
+      "options": null,
+      "range": null,
+      "default": false
+    },
+    {
+      "key": "via_administracion",
+      "label": "Vía principal",
+      "group": "Patrón de consumo",
+      "type": "enum",
+      "options": [
+        "fumada",
+        "inyectada",
+        "intranasal",
+        "oral"
+      ],
+      "range": null,
+      "default": "fumada"
+    },
+    {
+      "key": "dias_uso_ultimos_30",
+      "label": "Días con consumo en los últimos 30 (TLFB)",
+      "group": "Patrón de consumo",
+      "type": "integer",
+      "options": null,
+      "range": [
+        0,
+        30
+      ],
+      "default": 20
+    },
+    {
+      "key": "anios_uso",
+      "label": "Años de consumo regular",
+      "group": "Patrón de consumo",
+      "type": "number",
+      "options": null,
+      "range": [
+        0,
+        70
+      ],
+      "default": 5.0
+    },
+    {
+      "key": "criterios_dsm5",
+      "label": "Criterios DSM-5 previamente evaluados (si se conocen)",
+      "group": "Patrón de consumo",
+      "type": "integer",
+      "options": null,
+      "range": [
+        0,
+        11
+      ],
+      "default": 7
+    },
+    {
+      "key": "dias_abstinencia_actual",
+      "label": "Días desde el último consumo",
+      "group": "Patrón de consumo",
+      "type": "integer",
+      "options": null,
+      "range": [
+        0,
+        100000
+      ],
+      "default": 0
+    },
+    {
+      "key": "craving_eva",
+      "label": "Craving 0-10 (escala visual análoga)",
+      "group": "Patrón de consumo",
+      "type": "integer",
+      "options": null,
+      "range": [
+        0,
+        10
+      ],
+      "default": 6
+    },
+    {
+      "key": "uso_opioides_actual",
+      "label": "Uso actual de opioides (heroína, fentanilo, analgésicos sin receta)",
+      "group": "Patrón de consumo",
+      "type": "boolean",
+      "options": null,
+      "range": null,
+      "default": false
+    },
+    {
+      "key": "tratamiento_agonista_opioide",
+      "label": "En tratamiento con metadona o buprenorfina",
+      "group": "Patrón de consumo",
+      "type": "boolean",
+      "options": null,
+      "range": null,
+      "default": false
+    },
+    {
+      "key": "antecedente_uso_opioides",
+      "label": "Uso previo de opioides",
+      "group": "Patrón de consumo",
+      "type": "boolean",
+      "options": null,
+      "range": null,
+      "default": false
+    },
+    {
+      "key": "riesgo_fentanilo_suministro",
+      "label": "Posible fentanilo en el suministro local",
+      "group": "Patrón de consumo",
+      "type": "boolean",
+      "options": null,
+      "range": null,
+      "default": true
+    },
+    {
+      "key": "antecedente_sobredosis",
+      "label": "Sobredosis previa",
+      "group": "Patrón de consumo",
+      "type": "boolean",
+      "options": null,
+      "range": null,
+      "default": false
+    },
+    {
+      "key": "audit",
+      "label": "AUDIT alcohol (0-40; 8-15 riesgo, >=16 perjudicial/dependencia)",
+      "group": "Patrón de consumo",
+      "type": "integer",
+      "options": null,
+      "range": [
+        0,
+        40
+      ],
+      "default": 5
+    },
+    {
+      "key": "alcohol_diario_intenso",
+      "label": "Consumo diario intenso de alcohol (riesgo de abstinencia complicada)",
+      "group": "Patrón de consumo",
+      "type": "boolean",
+      "options": null,
+      "range": null,
+      "default": false
+    },
+    {
+      "key": "benzodiacepinas_diarias",
+      "label": "Uso diario de benzodiacepinas",
+      "group": "Patrón de consumo",
+      "type": "boolean",
+      "options": null,
+      "range": null,
+      "default": false
+    },
+    {
+      "key": "tabaco_cigarros_dia",
+      "label": "Cigarros/día",
+      "group": "Patrón de consumo",
+      "type": "integer",
+      "options": null,
+      "range": [
+        0,
+        200
+      ],
+      "default": 0
+    },
+    {
+      "key": "conducta_sexual_riesgo",
+      "label": "Chemsex, ITS reciente o sexo sin protección con parejas múltiples",
+      "group": "Patrón de consumo",
+      "type": "boolean",
+      "options": null,
+      "range": null,
+      "default": false
+    },
+    {
+      "key": "antecedente_convulsiones",
+      "label": "Cualquier convulsión previa (incluida inducida por sustancias)",
+      "group": "Salud física y contraindicaciones",
+      "type": "boolean",
+      "options": null,
+      "range": null,
+      "default": false
+    },
+    {
+      "key": "tce_moderado_severo",
+      "label": "Traumatismo craneoencefálico moderado/severo",
+      "group": "Salud física y contraindicaciones",
+      "type": "boolean",
+      "options": null,
+      "range": null,
+      "default": false
+    },
+    {
+      "key": "trastorno_alimentario",
+      "label": "Bulimia o anorexia, actual o previa",
+      "group": "Salud física y contraindicaciones",
+      "type": "boolean",
+      "options": null,
+      "range": null,
+      "default": false
+    },
+    {
+      "key": "enfermedad_hepatica",
+      "label": "Hepatopatía",
+      "group": "Salud física y contraindicaciones",
+      "type": "enum",
+      "options": [
+        "ninguna",
+        "leve",
+        "moderada",
+        "severa",
+        "hepatitis_aguda"
+      ],
+      "range": null,
+      "default": "ninguna"
+    },
+    {
+      "key": "alt_veces_lsn",
+      "label": "ALT en múltiplos del límite normal (si tienes el resultado)",
+      "group": "Salud física y contraindicaciones",
+      "type": "number",
+      "options": null,
+      "range": [
+        0.1,
+        50
+      ],
+      "default": 1.0
+    },
+    {
+      "key": "hipertension_no_controlada",
+      "label": "HTA no controlada",
+      "group": "Salud física y contraindicaciones",
+      "type": "boolean",
+      "options": null,
+      "range": null,
+      "default": false
+    },
+    {
+      "key": "cardiopatia",
+      "label": "Miocardiopatía, arritmia o cardiopatía isquémica",
+      "group": "Salud física y contraindicaciones",
+      "type": "boolean",
+      "options": null,
+      "range": null,
+      "default": false
+    },
+    {
+      "key": "qtc_prolongado",
+      "label": "QTc prolongado en ECG",
+      "group": "Salud física y contraindicaciones",
+      "type": "boolean",
+      "options": null,
+      "range": null,
+      "default": false
+    },
+    {
+      "key": "sintomas_cardiacos_agudos",
+      "label": "Dolor torácico, disnea, síncope o palpitaciones actuales",
+      "group": "Salud física y contraindicaciones",
+      "type": "boolean",
+      "options": null,
+      "range": null,
+      "default": false
+    },
+    {
+      "key": "implantes_metalicos_cabeza",
+      "label": "Metal intracraneal / implante coclear",
+      "group": "Salud física y contraindicaciones",
+      "type": "boolean",
+      "options": null,
+      "range": null,
+      "default": false
+    },
+    {
+      "key": "dispositivo_implantado",
+      "label": "Marcapasos, DAI u otro estimulador",
+      "group": "Salud física y contraindicaciones",
+      "type": "boolean",
+      "options": null,
+      "range": null,
+      "default": false
+    },
+    {
+      "key": "vih",
+      "label": "VIH",
+      "group": "Salud física y contraindicaciones",
+      "type": "enum",
+      "options": [
+        "negativo",
+        "positivo_en_tratamiento",
+        "positivo_sin_tratamiento",
+        "desconocido"
+      ],
+      "range": null,
+      "default": "desconocido"
+    },
+    {
+      "key": "vhc",
+      "label": "Hepatitis C",
+      "group": "Salud física y contraindicaciones",
+      "type": "enum",
+      "options": [
+        "negativo",
+        "positivo",
+        "desconocido"
+      ],
+      "range": null,
+      "default": "desconocido"
+    },
+    {
+      "key": "dolor_cronico_con_opioides",
+      "label": "Dolor crónico que requiere analgesia opioide",
+      "group": "Salud física y contraindicaciones",
+      "type": "boolean",
+      "options": null,
+      "range": null,
+      "default": false
+    },
+    {
+      "key": "uso_imao_14d",
+      "label": "IMAO en los últimos 14 días",
+      "group": "Salud física y contraindicaciones",
+      "type": "boolean",
+      "options": null,
+      "range": null,
+      "default": false
+    },
+    {
+      "key": "phq9",
+      "label": "PHQ-9 (0-27; >=10 moderado, >=20 severo)",
+      "group": "Salud mental y seguridad",
+      "type": "integer",
+      "options": null,
+      "range": [
+        0,
+        27
+      ],
+      "default": 8
+    },
+    {
+      "key": "riesgo_suicida",
+      "label": "Seguridad actual: pensamientos de hacerse daño (autorreporte)",
+      "group": "Salud mental y seguridad",
+      "type": "enum",
+      "options": [
+        "ninguno",
+        "bajo",
+        "moderado",
+        "alto"
+      ],
+      "range": null,
+      "default": "bajo"
+    },
+    {
+      "key": "psicosis_actual",
+      "label": "Percepciones inusuales o dificultad para distinguir qué es real (autorreporte)",
+      "group": "Salud mental y seguridad",
+      "type": "boolean",
+      "options": null,
+      "range": null,
+      "default": false
+    },
+    {
+      "key": "psicosis_inducida_previa",
+      "label": "Psicosis inducida por estimulantes previa",
+      "group": "Salud mental y seguridad",
+      "type": "boolean",
+      "options": null,
+      "range": null,
+      "default": false
+    },
+    {
+      "key": "trastorno_bipolar",
+      "label": "Trastorno bipolar diagnosticado",
+      "group": "Salud mental y seguridad",
+      "type": "boolean",
+      "options": null,
+      "range": null,
+      "default": false
+    },
+    {
+      "key": "tdah",
+      "label": "TDAH diagnosticado",
+      "group": "Salud mental y seguridad",
+      "type": "boolean",
+      "options": null,
+      "range": null,
+      "default": false
+    },
+    {
+      "key": "pcl5",
+      "label": "PCL-5 (0-80; >=33 TEPT probable)",
+      "group": "Salud mental y seguridad",
+      "type": "integer",
+      "options": null,
+      "range": [
+        0,
+        80
+      ],
+      "default": 10
+    },
+    {
+      "key": "tept_complejo",
+      "label": "TEPT complejo (p. ej., ITQ / evaluación tipo TRAZA)",
+      "group": "Salud mental y seguridad",
+      "type": "boolean",
+      "options": null,
+      "range": null,
+      "default": false
+    },
+    {
+      "key": "ace",
+      "label": "Experiencias adversas en la infancia (0-10)",
+      "group": "Salud mental y seguridad",
+      "type": "integer",
+      "options": null,
+      "range": [
+        0,
+        10
+      ],
+      "default": 2
+    },
+    {
+      "key": "gad7",
+      "label": "GAD-7 (0-21)",
+      "group": "Salud mental y seguridad",
+      "type": "integer",
+      "options": null,
+      "range": [
+        0,
+        21
+      ],
+      "default": 6
+    },
+    {
+      "key": "deterioro_cognitivo",
+      "label": "Deterioro cognitivo clínicamente relevante",
+      "group": "Salud mental y seguridad",
+      "type": "boolean",
+      "options": null,
+      "range": null,
+      "default": false
+    },
+    {
+      "key": "etapa_cambio",
+      "label": "Etapa de cambio",
+      "group": "Preferencias y recursos",
+      "type": "enum",
+      "options": [
+        "precontemplacion",
+        "contemplacion",
+        "preparacion",
+        "accion",
+        "mantenimiento"
+      ],
+      "range": null,
+      "default": "preparacion"
+    },
+    {
+      "key": "tratamientos_previos",
+      "label": "Episodios de tratamiento previos",
+      "group": "Preferencias y recursos",
+      "type": "integer",
+      "options": null,
+      "range": [
+        0,
+        100
+      ],
+      "default": 0
+    },
+    {
+      "key": "rechaza_medicacion",
+      "label": "No acepta fármacos",
+      "group": "Preferencias y recursos",
+      "type": "boolean",
+      "options": null,
+      "range": null,
+      "default": false
+    },
+    {
+      "key": "rechaza_inyectables",
+      "label": "No acepta inyectables",
+      "group": "Preferencias y recursos",
+      "type": "boolean",
+      "options": null,
+      "range": null,
+      "default": false
+    },
+    {
+      "key": "rechaza_grupos",
+      "label": "No acepta grupos",
+      "group": "Preferencias y recursos",
+      "type": "boolean",
+      "options": null,
+      "range": null,
+      "default": false
+    },
+    {
+      "key": "horas_disponibles_semana",
+      "label": "Horas/semana disponibles para tratamiento (incluye traslados)",
+      "group": "Preferencias y recursos",
+      "type": "number",
+      "options": null,
+      "range": [
+        0.5,
+        80
+      ],
+      "default": 8.0
+    },
+    {
+      "key": "transporte",
+      "label": "Tiene transporte viable",
+      "group": "Preferencias y recursos",
+      "type": "boolean",
+      "options": null,
+      "range": null,
+      "default": true
+    },
+    {
+      "key": "minutos_a_clinica",
+      "label": "Minutos de traslado (un sentido)",
+      "group": "Preferencias y recursos",
+      "type": "integer",
+      "options": null,
+      "range": [
+        0,
+        1000
+      ],
+      "default": 20
+    },
+    {
+      "key": "presupuesto_semanal_mxn",
+      "label": "Presupuesto máximo por semana (MXN)",
+      "group": "Preferencias y recursos",
+      "type": "number",
+      "options": null,
+      "range": [
+        0,
+        10000000.0
+      ],
+      "default": 1500.0
+    },
+    {
+      "key": "vivienda",
+      "label": "Situación de vivienda",
+      "group": "Entorno y apoyos",
+      "type": "enum",
+      "options": [
+        "estable",
+        "inestable",
+        "calle"
+      ],
+      "range": null,
+      "default": "estable"
+    },
+    {
+      "key": "convive_con_usuarios",
+      "label": "Vive con personas que consumen",
+      "group": "Entorno y apoyos",
+      "type": "boolean",
+      "options": null,
+      "range": null,
+      "default": false
+    },
+    {
+      "key": "pareja_usuaria",
+      "label": "Pareja que consume",
+      "group": "Entorno y apoyos",
+      "type": "boolean",
+      "options": null,
+      "range": null,
+      "default": false
+    },
+    {
+      "key": "violencia_pareja",
+      "label": "Violencia de pareja",
+      "group": "Entorno y apoyos",
+      "type": "boolean",
+      "options": null,
+      "range": null,
+      "default": false
+    },
+    {
+      "key": "red_consumo_prop",
+      "label": "Proporción de su red cercana que consume (0-1)",
+      "group": "Entorno y apoyos",
+      "type": "number",
+      "options": null,
+      "range": [
+        0,
+        1
+      ],
+      "default": 0.3
+    },
+    {
+      "key": "apoyo_familiar",
+      "label": "Apoyo familiar",
+      "group": "Entorno y apoyos",
+      "type": "enum",
+      "options": [
+        "ninguno",
+        "bajo",
+        "moderado",
+        "alto"
+      ],
+      "range": null,
+      "default": "moderado"
+    },
+    {
+      "key": "familia_dispuesta",
+      "label": "Familia dispuesta a participar",
+      "group": "Entorno y apoyos",
+      "type": "boolean",
+      "options": null,
+      "range": null,
+      "default": true
+    },
+    {
+      "key": "empleo",
+      "label": "Situación laboral",
+      "group": "Entorno y apoyos",
+      "type": "enum",
+      "options": [
+        "formal",
+        "informal",
+        "desempleado",
+        "estudiante"
+      ],
+      "range": null,
+      "default": "informal"
+    },
+    {
+      "key": "supervision_judicial",
+      "label": "Bajo supervisión judicial",
+      "group": "Entorno y apoyos",
+      "type": "boolean",
+      "options": null,
+      "range": null,
+      "default": false
+    },
+    {
+      "key": "disponibilidad_sustancia",
+      "label": "Disponibilidad de la sustancia en su entorno",
+      "group": "Entorno y apoyos",
+      "type": "enum",
+      "options": [
+        "baja",
+        "media",
+        "alta"
+      ],
+      "range": null,
+      "default": "media"
+    },
+    {
+      "key": "grupos_ayuda_mutua_locales",
+      "label": "Hay grupos de ayuda mutua accesibles",
+      "group": "Entorno y apoyos",
+      "type": "boolean",
+      "options": null,
+      "range": null,
+      "default": true
+    }
+  ],
+  "context_default": {
+    "disponibles": {
+      "cm": true,
+      "cra": true,
+      "tcc": true,
+      "em": true,
+      "ejer": true,
+      "pares": true,
+      "fam": true,
+      "trauma": true,
+      "viv": true,
+      "voc": true,
+      "gestion": true,
+      "bup": true,
+      "ntx": true,
+      "mirt": true,
+      "rtms": true,
+      "mod": true,
+      "nac": true
+    },
+    "niveles_no_disponibles": {
+      "ntx": [
+        2
+      ]
+    },
+    "costos_mxn": {},
+    "max_farmacos": 2
+  },
+  "components": [
+    {
+      "key": "cm",
+      "name": "Manejo de contingencias (MC)",
+      "levels": [
+        "no",
+        "estándar (premios; antidoping 2-3/sem)",
+        "alta magnitud (vales escalonados)"
+      ]
+    },
+    {
+      "key": "cra",
+      "name": "Reforzamiento comunitario (CRA)",
+      "levels": [
+        "no",
+        "CRA semanal"
+      ]
+    },
+    {
+      "key": "tcc",
+      "name": "Terapia cognitivo-conductual / Modelo Matrix",
+      "levels": [
+        "no",
+        "TCC semanal",
+        "Matrix IOP (3 sesiones/sem)"
+      ]
+    },
+    {
+      "key": "em",
+      "name": "Entrevista motivacional / MET",
+      "levels": [
+        "no",
+        "EM/MET (2-4 sesiones por etapa)"
+      ]
+    },
+    {
+      "key": "ejer",
+      "name": "Ejercicio aeróbico estructurado",
+      "levels": [
+        "no",
+        "3 sesiones/sem supervisadas"
+      ]
+    },
+    {
+      "key": "pares",
+      "name": "Ayuda mutua / grupo de pares + facilitación 12 pasos",
+      "levels": [
+        "no",
+        "2-3 reuniones/sem + padrino o mentor"
+      ]
+    },
+    {
+      "key": "fam",
+      "name": "Terapia familiar / de pareja conductual",
+      "levels": [
+        "no",
+        "sesión semanal o quincenal"
+      ]
+    },
+    {
+      "key": "trauma",
+      "name": "Terapia de trauma integrada (p. ej., COPE)",
+      "levels": [
+        "no",
+        "semanal (12-16 sesiones)"
+      ]
+    },
+    {
+      "key": "viv",
+      "name": "Vivienda de recuperación (voluntaria, libre de sustancias)",
+      "levels": [
+        "no",
+        "residencia de recuperación"
+      ]
+    },
+    {
+      "key": "voc",
+      "name": "Apoyo vocacional (empleo con apoyo, tipo IPS)",
+      "levels": [
+        "no",
+        "especialista de empleo semanal"
+      ]
+    },
+    {
+      "key": "gestion",
+      "name": "Gestión de caso + apoyo de transporte",
+      "levels": [
+        "no",
+        "gestor de caso semanal + apoyo de traslado"
+      ]
+    },
+    {
+      "key": "bup",
+      "name": "Bupropión XL",
+      "levels": [
+        "no",
+        "150 mg/día",
+        "300 mg/día",
+        "450 mg/día"
+      ]
+    },
+    {
+      "key": "ntx",
+      "name": "Naltrexona",
+      "levels": [
+        "no",
+        "oral 50 mg/día",
+        "XR 380 mg IM c/3 sem"
+      ]
+    },
+    {
+      "key": "mirt",
+      "name": "Mirtazapina",
+      "levels": [
+        "no",
+        "15 mg/noche",
+        "30 mg/noche"
+      ]
+    },
+    {
+      "key": "rtms",
+      "name": "EMTr (rTMS) 10 Hz CPFDL izquierda",
+      "levels": [
+        "no",
+        "curso de 20 sesiones"
+      ]
+    },
+    {
+      "key": "mod",
+      "name": "Modafinilo (solo investigación)",
+      "levels": [
+        "no",
+        "200 mg/día"
+      ]
+    },
+    {
+      "key": "nac",
+      "name": "N-acetilcisteína (solo investigación)",
+      "levels": [
+        "no",
+        "2400 mg/día"
+      ]
+    }
+  ]
+}
