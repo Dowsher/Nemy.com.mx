@@ -1,11 +1,9 @@
-# Estado de la entrega
+# Estado de la entrega 0.5
 
-Preparada el 31 de octubre de 2026 para el ecosistema Nemy.
+Teléfono 0.5.0-pilot y reloj 0.4.0-pilot instalados; APK cotejadas por SHA-256. Firmware VisioLED 0.1.0 sin cambios.
 
-- Visio Mobile 0.4.1-pilot y Visio Wear 0.3.0-pilot instalados; los APK incluidos coinciden con los entregados por SHA-256.
-- VisioLED 0.1.0 instalado en ESP32-S3 con perfil XIAO, LED integrado GPIO21 activo en bajo. Vinculación, recepción de órdenes, encendido/apagado físico y reconexión probados.
-- Compilación y Lint sin errores. Trece pruebas compartidas y dos del reloj aprobadas durante el desarrollo; persisten advertencias de Lint documentadas en el proyecto de trabajo.
-- Captura compacta y medición manual de 30 segundos comprobadas; archivos cerrados transferidos por BLE y cotejados con SQLite. Se verificaron zoom, recorrido temporal, promedios y acceso a lecturas individuales.
-- La detección sigue siendo experimental; no se validó precisión ni autonomía de 60 minutos/8 horas. El usuario continuará las pruebas.
+Captura esencial: acelerómetro a 25 Hz, pulso/IBI y temperatura. Sin giroscopio, PPG crudo ni EDA en nuevas sesiones. Históricos conservados. Detector con control temporal/de calidad y perfil privado actualizado a partir de confirmaciones y descartes.
 
-Este paquete contiene software y documentación. Las mediciones, exportaciones personales, capturas de los dispositivos, registros de ejecución y respaldos de flash se conservan en el proyecto de trabajo original y no se incluyen aquí.
+Compilación y Lint sin errores. Veinte pruebas de core y dos del reloj aprobadas. La precisión del detector y el ahorro de batería no están validados prospectivamente; el usuario continuará las pruebas físicas. Ver DETECTOR-Y-CAPTURA.md.
+
+Esta carpeta contiene software y documentación. Las medidas, etiquetas, perfiles personales y respaldos de dispositivos permanecen fuera de Git.

@@ -1,17 +1,17 @@
 {
   "phone": {
-    "version": "0.4.1-pilot",
-    "sha256": "99689d2873e28634bb19a438795199b6452276c2ec1255cb237ead3c417414dc",
-    "bytes": 30144993,
-    "installed_matches": true
+    "version": "0.5.0-pilot",
+    "sha256": "3b2b62fb430b9c162cbf1be31aefa73ec718edfcd9e99be1f792964570bc479a",
+    "installed_matches": true,
+    "bytes": 30941757
   },
   "watch": {
-    "version": "0.3.0-pilot",
-    "sha256": "694cabeeaa807de26b51ff14e68c2b1d8a31060a680141abbc8dd05e1e196a48",
-    "bytes": 29743503,
-    "installed_matches": true
+    "version": "0.4.0-pilot",
+    "sha256": "d5f7b802a82fca02894eddce44cf388ac6772da815b93e93f908c4330352f5d2",
+    "installed_matches": true,
+    "bytes": 29677119
   },
-  "source_commit": "e0c5436501a5bba06b5d1cb679c50ef391119e65",
+  "source_commit": "3e8c5e92c012995c21c80ce38d9c0d5fdad08e27",
   "package": "Visio-Nemy",
   "date": "2026-10-31",
   "local_only_ignored": [
@@ -19,5 +19,7 @@
   ],
   "personal_measurements_included": false,
   "private_keys_included": false,
-  "remote_configured": false
+  "package_commit": "43743430da525883457caff465df35c75f86a3a3",
+  "repository": "https://github.com/Dowsher/Nemy.com.mx",
+  "repository_path": "VISIO"
 }

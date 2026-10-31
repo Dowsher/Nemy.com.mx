@@ -1,0 +1,5 @@
+# Preserve the existing board's NVS range (verified from its original flash backup).
+# The old OTA metadata at 0xe000 is left outside the new partition table.
+# Name, Type, SubType, Offset, Size, Flags
+nvs, data, nvs, 0x9000, 0x5000,
+factory, app, factory, 0x10000, 0x100000,

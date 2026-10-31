@@ -1,0 +1,19 @@
+menu "Visio LED"
+    config PIPALAB_LED_GPIO
+        int "GPIO del LED (-1 = sin configurar)"
+        range -1 48
+        default -1
+        help
+            Elegir después de identificar el modelo y la revisión de la placa.
+    choice PIPALAB_LED_TYPE
+        prompt "Tipo de LED"
+        default PIPALAB_LED_SIMPLE
+        config PIPALAB_LED_SIMPLE
+            bool "LED convencional"
+        config PIPALAB_LED_RGB
+            bool "WS2812 / RGB direccionable"
+    endchoice
+    config PIPALAB_LED_ACTIVE_LOW
+        bool "LED convencional activo en nivel bajo"
+        default n
+endmenu

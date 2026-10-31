@@ -1,0 +1,4 @@
+Coloca aquí un único archivo .aar del Samsung Health Sensor SDK 1.4.1 o superior.
+Descarga oficial: https://developer.samsung.com/health/sensor/overview.html
+Normalmente se llama samsung-health-sensor-api.aar. No renombrar un ZIP como AAR.
+No se incluye la biblioteca propietaria en Git ni en el paquete de fuentes.

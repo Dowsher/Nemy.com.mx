@@ -1,12 +1,16 @@
-# Visio Mobile 0.4.1 — exploración de señales y registro compacto
+# Visio Mobile 0.5.0 — exploración de señales y registro compacto
 
-Herramienta del ecosistema **Nemy**. App nativa para el Samsung SM-S938B (Android 16), con tema oscuro, verde lima y grises. Esta entrega usa Visio Mobile 0.4.1 y Visio Wear 0.3.0. Se conserva el identificador interno org.pipalab.wear para actualizar ambas instalaciones sin perder historial, permisos o claves del vínculo. El nombre visible es Visio.
+Herramienta del ecosistema **Nemy**. App nativa para el Samsung SM-S938B (Android 16), con tema oscuro, verde lima y grises. Esta entrega usa Visio Mobile 0.5.0 y Visio Wear 0.4.0. Se conserva el identificador interno org.pipalab.wear para actualizar ambas instalaciones sin perder historial, permisos o claves del vínculo. El nombre visible es Visio.
+
+## Entrega instalada
+
+Teléfono 0.5.0 y reloj 0.4.0 actualizados. La nueva captura conserva pulso, temperatura y movimiento de 25 Hz. Se mantiene el historial anterior y sus correcciones. El detector personal reconstruye un perfil local a partir de eventos revisados con señal útil; no tiene una precisión validada. Consultar [DETECTOR-Y-CAPTURA.md](DETECTOR-Y-CAPTURA.md).
 
 ## Uso diario
 
 1. En el reloj, abrir Visio y tocar **Enlazar teléfono**. Después elegir el código anónimo, consentimiento e **INICIAR SESIÓN**.
 2. En el teléfono, abrir Visio y tocar **Conectar**. Debe aparecer **Conectado · cifrado local** y, cuando recibe muestras nuevas, **SEÑAL EN VIVO**.
-3. **En vivo**: pulso, IBI, temperatura y gráficas seleccionables de movimiento, giro, PPG verde/IR/rojo, uso y batería. Tocar una gráfica para inspeccionar un punto.
+3. **En vivo**: pulso, IBI, temperatura y movimiento. Los sensores de capturas anteriores siguen disponibles en Historial. Tocar una gráfica para inspeccionar un punto.
 4. **Historial**: seleccionar una sesión y señal. **Ampliar** abre la gráfica en pantalla completa. Pellizcar o usar **+/−** para cambiar la escala temporal; arrastrar horizontalmente o usar las flechas para recorrer el tiempo. El gesto vertical permite seguir bajando por la pantalla. Los botones de rango eligen 10 s, 1 min, 5 min, 1 h o toda la sesión. **En directo / Volver al final** recupera el seguimiento del final. Los consumos confirmados aparecen como marcas rojas con una entrada que permite revisarlos; las pruebas y los falsos positivos no se muestran como consumos confirmados.
 5. **Registrar consumo**: elegir pipa simulada, pipa, cigarro, vape u otro, momento y notas. El código guarda un evento independiente incluso sin sesión; sin señales asociadas no debe tratarse como ejemplo completo de entrenamiento.
 6. **Eventos**: confirmar, descartar como falso positivo, cambiar etiqueta/notas o devolver a revisión. Se conserva la alerta original y cada decisión con hora y origen.
@@ -26,7 +30,8 @@ La captura usa los sensores que ya están activos en el reloj. Si no hay una ses
 
 El modo compacto se aplica a nuevas sesiones del reloj. Las grabaciones anteriores permanecen completas y no se borran ni reducen.
 
-- Los sensores siguen midiéndose para análisis y gráficas en vivo. El reloj mantiene hasta 210 segundos en RAM, con un límite de 30,000 filas; el teléfono mantiene hasta 5 minutos recientes en RAM, con límites por sensor. Estas memorias no son un archivo persistente.
+- Solo se capturan acelerómetro de 25 Hz, pulso/IBI y temperatura. Pulso y temperatura se guardan cuando llegan, incluso fuera de segmentos; movimiento conserva detalle selectivo.
+- Los sensores activos siguen midiéndose para análisis y gráficas en vivo. El reloj mantiene hasta 210 segundos en RAM, con un límite de 30,000 filas; el teléfono mantiene hasta 5 minutos recientes en RAM, con límites por sensor. Estas memorias no son un archivo persistente.
 - Se guardan resúmenes por minuto calculados con todas las lecturas válidas disponibles, además de estados de calidad, eventos y auditoría. El resumen se publica tras el cierre del minuto con 15 segundos de margen para lotes retrasados; un lote posterior puede actualizarlo.
 - Se conserva señal detallada durante las mediciones manuales de 30 segundos y alrededor de patrones candidatos y eventos: 30 segundos de contexto antes y después de la ventana del evento, limitado a la señal disponible en memoria.
 - Se conservan 10 segundos cada 5 minutos como controles **sin etiquetar**. No se asume que sean negativos verdaderos; deben revisarse antes del entrenamiento.
@@ -45,11 +50,11 @@ Después de reiniciar un dispositivo o detener forzosamente la app, reabrir Visi
 
 Las alertas automáticas se activan con **Ajustes → Alertas de movimiento**. El ajuste empieza desactivado para que el investigador pueda decidir cuándo inicia el piloto.
 
-Son reglas experimentales locales: calibración de 5 s en reposo, elevación de la muñeca, pausa y retorno; dos gestos en 180 s y separación de 300 s entre alertas. Exigen señal de reloj puesto. No identifican la sustancia ni prueban que ocurrió un consumo. Comer, beber y otros movimientos pueden parecerse.
+El detector combina gestos repetidos y coherentes con ventanas parecidas a tus eventos revisados. Usa solo acelerómetro para reconocer el movimiento y conserva pulso/temperatura como contexto. Rechaza discontinuidades y requiere contacto con la muñeca; mantiene cinco minutos entre alertas. Comer, beber y otros movimientos pueden parecerse. Los detalles y límites están en DETECTOR-Y-CAPTURA.md.
 
 La barra **Normal / Cuidado / Potencial consumo** usa verde, amarillo y rojo. «Normal» significa que no se observa el patrón; «Cuidado», un gesto en curso o reciente; «Potencial consumo», una secuencia candidata reciente. Se queda gris cuando faltan señal fresca, contacto, calibración o la detección está desactivada. No es un indicador clínico ni confirma consumo.
 
-La notificación ofrece **Revisar** y **Descartar**. Descartar conserva los datos y registra un falso positivo; no elimina evidencia. Confirmar necesita una etiqueta humana. Las correcciones se guardan para un entrenamiento posterior: esta versión no se reentrena sola ni tiene una tasa de acierto validada.
+La notificación ofrece **Revisar** y **Descartar**. Descartar conserva los datos y registra un falso positivo; no elimina evidencia. Confirmar necesita una etiqueta humana. Las correcciones reconstruyen el perfil local mientras el enlace está activo, como máximo una vez por minuto cuando cambian los datos. La tasa de acierto aún no está validada.
 
 **Probar una notificación** genera un evento origin=test. Estas pruebas aparecen en el filtro **Pruebas**, no en los contadores de consumo, y deben excluirse del entrenamiento. Los registros automáticos preservan versión de reglas y características del movimiento. Los manuales conservan el reloj del teléfono y una estimación de desfase cuando había enlace; no es sincronización exacta.
 
@@ -68,7 +73,7 @@ Se dispara al crear una alerta automática; confirmar, descartar o consultar un 
 
 Si falta conexión, se conserva la alerta y se registra que no se envió la orden. No se ejecutan pulsos antiguos al reconectar. La confirmación indica que el firmware aplicó la salida; no es una medición óptica de que un LED físico encendió.
 
-El firmware del perfil XIAO utiliza GPIO21 activo en bajo. La vinculación, el pulso físico y la reconexión fueron comprobados. Código en `esp32s3-led/`; binarios en `firmware/VisioLED-XIAO/`. La cadena completa desde un gesto real sigue pendiente.
+El perfil XIAO utiliza GPIO21 activo en bajo. La vinculación, el pulso físico y la reconexión se comprobaron. Código en `esp32s3-led/`; binarios en `firmware/VisioLED-XIAO/`. La cadena completa desde un gesto real queda pendiente.
 
 ## Almacenamiento y exportación
 

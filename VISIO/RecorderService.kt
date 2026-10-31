@@ -97,15 +97,15 @@ class RecorderService : Service(), SensorEventListener2, HealthSink {
         val out = SessionWriter(this, cfg); writer = out
         val inventory = JSONArray()
         var allWake = true
-        for (type in listOf(Sensor.TYPE_ACCELEROMETER, Sensor.TYPE_GYROSCOPE, Sensor.TYPE_LOW_LATENCY_OFFBODY_DETECT)) {
+        for (type in listOf(Sensor.TYPE_ACCELEROMETER, Sensor.TYPE_LOW_LATENCY_OFFBODY_DETECT)) {
             val sensor = manager.getDefaultSensor(type, true) ?: manager.getDefaultSensor(type, false)
             if (sensor == null) { inventory.put(JSONObject().put("type", type).put("available", false)); continue }
             val imu = type != Sensor.TYPE_LOW_LATENCY_OFFBODY_DETECT
             if (imu && !sensor.isWakeUpSensor) allWake = false
             // La latencia no supera la mitad del FIFO reservado/máximo estimado. Sin FIFO, no batching.
             val fifo = if (sensor.fifoReservedEventCount > 0) sensor.fifoReservedEventCount else sensor.fifoMaxEventCount
-            val latency = if (imu && fifo > 0) minOf(2_000_000, fifo * 20_000 / 2) else 0
-            val registered = manager.registerListener(this, sensor, if (imu) 20_000 else SensorManager.SENSOR_DELAY_NORMAL, latency, handler)
+            val latency = if (imu && fifo > 0) minOf(2_000_000, fifo * 40_000 / 2) else 0
+            val registered = manager.registerListener(this, sensor, if (imu) 40_000 else SensorManager.SENSOR_DELAY_NORMAL, latency, handler)
             inventory.put(JSONObject().put("type", type).put("available", true).put("registered", registered)
                 .put("name", sensor.name).put("vendor", sensor.vendor).put("version", sensor.version)
                 .put("wake_up", sensor.isWakeUpSensor).put("fifo_max", sensor.fifoMaxEventCount)
@@ -143,8 +143,7 @@ class RecorderService : Service(), SensorEventListener2, HealthSink {
         }
         if (t < out.startNs || t > cutoff) return@safe
         when (e.sensor.type) {
-            Sensor.TYPE_ACCELEROMETER -> out.write("acelerometro", t, listOf(e.values[0], e.values[1], e.values[2], e.accuracy, received), period = 20_000_000)
-            Sensor.TYPE_GYROSCOPE -> out.write("giroscopio", t, listOf(e.values[0], e.values[1], e.values[2], e.accuracy, received), period = 20_000_000)
+            Sensor.TYPE_ACCELEROMETER -> out.write("acelerometro", t, listOf(e.values[0], e.values[1], e.values[2], e.accuracy, received), period = 40_000_000)
         }
     }
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) { /* Cada muestra incluye accuracy. */ }
@@ -177,14 +176,14 @@ class RecorderService : Service(), SensorEventListener2, HealthSink {
             if (now - lastBattery >= 300_000_000_000L) { sampleBattery(); wake?.acquire(10 * 60 * 1000L) }
             if (now - lastCheckpoint >= 5_000_000_000L) {
                 val actualWall = System.currentTimeMillis()
-                out.write("reloj", now, listOf(actualWall, actualWall - now / 1_000_000))
+                if ((now / 5_000_000_000L) % 12 == 0L) out.write("reloj", now, listOf(actualWall, actualWall - now / 1_000_000))
                 out.checkpoint(now - lastCheckpoint >= 60_000_000_000L || (now / 5_000_000_000L) % 12 == 0L)
                 lastCheckpoint = now
                 if (out.dir.usableSpace < 20L * 1024 * 1024) { requestStop("low_storage", now); return@safe }
             }
             val counts = out.stats.mapValues { it.value.count }
             val hz = out.stats.mapValues { it.value.hz() }
-            val stale = listOf("acelerometro", "giroscopio").any { now - (out.stats[it]?.last ?: out.startNs) > 6_000_000_000L }
+            val stale = listOf("acelerometro").any { now - (out.stats[it]?.last ?: out.startNs) > 6_000_000_000L }
             Live.state.value = RecorderStatus(true, false, (now - out.startNs) / 1_000_000_000, hz, counts, battery, event,
                 if (stale) "AVISO: IMU sin datos recientes" else "Grabando", out.dir.name, healthStatus)
             handler.postDelayed(this, 1000)
