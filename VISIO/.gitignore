@@ -14,27 +14,14 @@ esp32s3-led/managed_components/
 esp32s3-led/sdkconfig
 esp32s3-led/sdkconfig.old
 
-# Archivos privados y temporales
-.env
-.env.*
-!.env.example
-*.key
-*.pem
-*.p12
-*.pfx
-*.db
-*.db-wal
-*.db-shm
-*.sqlite
-*.sqlite3
-*.log
-pruebas-*/
-backups/
-sesiones/
-archives/
-Thumbs.db
-.DS_Store
-
+# Perfiles personales y exportaciones de señales nunca pertenecen al código
 personal-detector*.json
 Visio-consumos-crudos*.json
 modelos-privados/
+capturas/
+*.wav
+*.pcm
+training-backup*/
+activity_models/
+Visio-Entrenamiento*.zip
+aprendizaje.json

@@ -1,25 +1,29 @@
 {
-  "phone": {
-    "version": "0.5.0-pilot",
-    "sha256": "3b2b62fb430b9c162cbf1be31aefa73ec718edfcd9e99be1f792964570bc479a",
-    "installed_matches": true,
-    "bytes": 30941757
-  },
-  "watch": {
-    "version": "0.4.0-pilot",
-    "sha256": "d5f7b802a82fca02894eddce44cf388ac6772da815b93e93f908c4330352f5d2",
-    "installed_matches": true,
-    "bytes": 29677119
-  },
-  "source_commit": "3e8c5e92c012995c21c80ce38d9c0d5fdad08e27",
   "package": "Visio-Nemy",
   "date": "2026-10-31",
-  "local_only_ignored": [
-    "app/libs/samsung-health-sensor-api-1.4.1.aar"
-  ],
+  "source_commit": "fa04a006e9dafc71dea99787f97b87b735f413e1",
   "personal_measurements_included": false,
   "private_keys_included": false,
-  "package_commit": "43743430da525883457caff465df35c75f86a3a3",
+  "physical_training_audio_dictation_led_test": "pending",
+  "tests": {
+    "core": 26,
+    "phone": 7,
+    "watch": 2,
+    "zoom": 2
+  },
+  "phone": {
+    "version": "0.7.0-training",
+    "sha256": "20bcedd6dfdb0e26d187a7237bb96e6f11f0593f5d20ee966c64c22bc83137bc",
+    "bytes": 31151965,
+    "installed_matches": true
+  },
+  "watch": {
+    "version": "0.5.0-training",
+    "sha256": "cd1196b8cfd8b2c57f7b9e7c9e9e357b2703a76874324d89a69e5569332cf8c8",
+    "bytes": 29841923,
+    "installed_matches": true
+  },
+  "package_commit": "f6c3a9b4785dd1539d8475f5be744eee6e22b538",
   "repository": "https://github.com/Dowsher/Nemy.com.mx",
   "repository_path": "VISIO"
 }

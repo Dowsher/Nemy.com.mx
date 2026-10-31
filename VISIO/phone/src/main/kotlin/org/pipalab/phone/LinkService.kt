@@ -10,19 +10,16 @@ import java.io.File
 import java.io.RandomAccessFile
 import java.util.Base64
 
-data class LinkStatus(val text:String="Enlace apagado",val connected:Boolean=false,val recording:Boolean=false,val session:String="",val lastData:Long=0,val battery:Int=-1,val sync:String="",val calibrated:Boolean=false,val clockDelta:Long=0,val compact:Boolean=false,val protocol:Int=1,val stage:Int=-1,val watchElapsed:Long=0)
+data class LinkStatus(val text:String="Enlace apagado",val connected:Boolean=false,val recording:Boolean=false,val session:String="",val lastData:Long=0,val battery:Int=-1,val sync:String="",val calibrated:Boolean=false,val clockDelta:Long=0,val compact:Boolean=false,val protocol:Int=1,val stage:Int=-1,val watchElapsed:Long=0,val trainingId:String="",val pendingTrainingId:String="",val activity:String="",val seconds:Long=0,val durationSeconds:Int=0,val audioState:String="off",val audioSeconds:Double=0.0,val audioPeak:Double=0.0,val audioSilenced:Boolean=false,val audioMessage:String="",val stopping:Boolean=false)
 object PhoneLive { val state=MutableStateFlow(LinkStatus()) }
 class LinkService:Service() {
     private lateinit var worker:HandlerThread
     private lateinit var handler:Handler
     private lateinit var db:Store
     private var endpoint:BleClient?=null
-    private val detector=GestureDetector()
-    private lateinit var personalization:PersonalDetector
-    private var lastPersonalization=0L
-    private var detectorSession=""
-    private val imu=ArrayList<Pair<String,JSONObject>>()
+    private var lastDemoImpulse=0L
     private var lastCatalog=0L
+    private var chunkRequestedMs=0L
     private var pending:Transfer?=null
     private val queue=ArrayDeque<Transfer>()
     private val sessionFiles=mutableMapOf<String,List<Transfer>>()
@@ -30,7 +27,8 @@ class LinkService:Service() {
     private data class Transfer(val session:String,val name:String,val size:Long,val sha:String)
     override fun onBind(intent:Intent?)=null
     override fun onCreate() {
-        super.onCreate(); db=Store.get(this);personalization=PersonalDetector(this,db)
+        super.onCreate(); db=Store.get(this)
+        getSharedPreferences("prefs",MODE_PRIVATE).edit().putBoolean("detection",false).putBoolean("esp_automatic",false).putBoolean("audio_demo",false).apply()
         Notices.channels(this)
         val stop=PendingIntent.getService(this,7,Intent(this,LinkService::class.java).setAction("STOP"),PendingIntent.FLAG_IMMUTABLE)
         val n=Notification.Builder(this,"link").setSmallIcon(R.drawable.ic_lab).setContentTitle("Visio · enlace local")
@@ -43,7 +41,7 @@ class LinkService:Service() {
                 val key=PairingKeys.load(this) ?: error("Falta configurar el vínculo privado")
                 endpoint=BleClient(this,handler,key,{ text,ready ->
                     PhoneLive.state.value=PhoneLive.state.value.copy(text=text,connected=ready,recording=if(ready) PhoneLive.state.value.recording else false)
-                    if(!ready) { pending=null; queue.clear(); imu.clear(); detector.reset() }
+                    if(!ready) { pending=null; queue.clear(); lastDemoImpulse=0L; getSharedPreferences("prefs",MODE_PRIVATE).edit().putBoolean("audio_demo",false).apply() }
                 },::receive).also{it.start()}
                 handler.post(tick)
             }.onFailure{PhoneLive.state.value=LinkStatus(text=it.message ?: "Error al conectar"); stopSelf()}
@@ -51,6 +49,26 @@ class LinkService:Service() {
     }
     override fun onStartCommand(intent:Intent?,flags:Int,id:Int):Int {
         if(intent?.action=="STOP") stopSelf()
+        if(intent?.action in setOf("TRAINING_PREPARE","TRAINING_CANCEL","TRAINING_STOP","TRAINING_POINT")) handler.post {
+            val training=TrainingStore(db)
+            val key=intent?.getStringExtra("id") ?: return@post
+            val live=PhoneLive.state.value
+            if(!live.connected || live.protocol<3) { if(intent.action=="TRAINING_PREPARE")training.status(key,if(live.connected)"unsupported" else "unconfirmed");return@post }
+            when(intent.action) {
+                "TRAINING_PREPARE" -> training.records().find{it.id==key}?.let {
+                    send(JSONObject().put("type","training_prepare").put("capture",JSONObject(it.original)))
+                    handler.postDelayed({training.records().find{r->r.id==key && r.status=="requested"}?.let{training.status(key,"unconfirmed")}},12000)
+                }
+                "TRAINING_CANCEL" -> send(JSONObject().put("type","training_cancel").put("id",key))
+                "TRAINING_STOP" -> send(JSONObject().put("type","training_stop").put("id",key))
+                "TRAINING_POINT" -> {
+                    val label=intent.getStringExtra("label") ?: return@post
+                    val pointId=java.util.UUID.randomUUID().toString();val now=System.currentTimeMillis()
+                    training.pointRequest(pointId,key,label,now)
+                    send(JSONObject().put("type","training_point").put("training_id",key).put("id",pointId).put("label",label).put("phone_wall_ms",now))
+                }
+            }
+        }
         if(intent?.action in listOf("MEASURE","RETAIN"))handler.post {
             val key=intent?.getStringExtra("id") ?: return@post
             val live=PhoneLive.state.value
@@ -74,12 +92,27 @@ class LinkService:Service() {
             when(j.getString("type")) {
                 "status" -> {
                     val recording=j.getBoolean("recording"); val session=j.optString("session")
+                    if(session!=PhoneLive.state.value.session)lastDemoImpulse=0L
+                    if(!recording)getSharedPreferences("prefs",MODE_PRIVATE).edit().putBoolean("audio_demo",false).apply()
                     if(recording!=wasRecording) endpoint?.priority(recording || pending!=null)
                     PhoneLive.state.value=PhoneLive.state.value.copy(recording=recording,session=session,battery=j.optInt("battery",-1),clockDelta=System.currentTimeMillis()-j.getLong("wall"),compact=j.optBoolean("compact"),protocol=j.optInt("protocol",1),watchElapsed=j.optLong("elapsed"))
+                    PhoneLive.state.value=PhoneLive.state.value.copy(trainingId=j.optString("training_id"),pendingTrainingId=j.optString("pending_training_id"),activity=j.optString("activity"),
+                        seconds=j.optLong("seconds"),durationSeconds=j.optInt("duration_seconds"),audioState=j.optString("audio_state","off"),audioSeconds=j.optDouble("audio_seconds",0.0),
+                        audioPeak=j.optDouble("audio_peak",0.0),audioSilenced=j.optBoolean("audio_silenced"),audioMessage=j.optString("audio_message"),stopping=j.optBoolean("stopping"))
+                    TrainingStore(db).live(j.optString("training_id"),session,recording,j.optBoolean("stopping"),j.optString("audio_state","off"),j.optDouble("audio_seconds",0.0))
                     if(wasRecording && !recording) lastCatalog=0
                     wasRecording=recording
                 }
                 "meta" -> db.putMeta(j.getString("session"),j.getJSONObject("meta"))
+                "training_ack" -> TrainingStore(db).status(j.getString("id"),j.getString("state"))
+                "point_ack" -> if(j.optBoolean("ok")) TrainingStore(db).pointAck(j.getString("id"),j.getLong("wall"))
+                "audio_impulse" -> {
+                    val live=PhoneLive.state.value;val elapsed=j.getLong("elapsed")
+                    val fresh=System.currentTimeMillis()-live.clockDelta-j.getLong("wall") in -1000..3500
+                    if(getSharedPreferences("prefs",MODE_PRIVATE).getBoolean("audio_demo",false) && live.recording && live.trainingId==j.getString("training_id") && fresh && elapsed-lastDemoImpulse>1_500_000_000L) {
+                        lastDemoImpulse=elapsed;EspTrigger.pulse(this,j.getString("id"),"demo_sound")
+                    }
+                }
                 "rows" -> {
                     val id=j.getString("session"); val file=j.getString("file"); val stream=j.getString("stream")
                     val columns=j.getString("columns").split(","); val rows=j.getJSONArray("rows")
@@ -88,11 +121,7 @@ class LinkService:Service() {
                         val a=rows.getJSONArray(i); require(a.length()==columns.size+1)
                         val row=JSONObject(); columns.forEachIndexed{k,c->row.put(c,a.get(k+1))}
                         values.add(a.getLong(0) to row)
-                        if((!j.optBoolean("persist",true) || !PhoneLive.state.value.compact) && stream=="acelerometro") {
-                            if(detectorSession!=id) { detector.reset();detector.setProfile(MotionProfile());lastPersonalization=0; imu.clear(); detectorSession=id }
-                            imu.add(stream to row)
-                            if(imu.size>2000){imu.clear();detector.reset()}
-                        }
+
                     }
                     if(j.optBoolean("persist",true))db.insertRows(id,file,stream,values)
                     if(stream !in listOf("resumen_minuto","ventanas"))LiveSamples.add(id,stream,values.map{(idx,row)->Sample(row.getLong("t_wall_ms"),row.getLong("t_elapsed_ns"),row.keys().asSequence().associateWith{row.optString(it)},if(j.optBoolean("persist",true))"raw" else "live",file,idx)})
@@ -112,6 +141,7 @@ class LinkService:Service() {
                         val files=s.getJSONArray("files"); val list=ArrayList<Transfer>()
                         for(f in 0 until files.length()) {
                             val a=files.getJSONObject(f); val t=Transfer(id,a.getString("name"),a.getLong("size"),a.getString("sha"))
+                            require(ActivityTypes.transferable(t.name))
                             list.add(t)
                             if(!known(t)) queue.addLast(t)
                         }
@@ -148,7 +178,7 @@ class LinkService:Service() {
     private fun next() {
         sessionFiles.forEach{(id,list)->if(list.all(::known)) db.completed(id)}
         val t=queue.removeFirstOrNull()
-        if(t==null) { endpoint?.priority(PhoneLive.state.value.recording); PhoneLive.state.value=PhoneLive.state.value.copy(sync="Sesiones cerradas sincronizadas"); return }
+        if(t==null) { endpoint?.priority(PhoneLive.state.value.recording); PhoneLive.state.value=PhoneLive.state.value.copy(sync="Sesiones cerradas sincronizadas");LearningEngine.get(this).refresh(); return }
         pending=t
         endpoint?.priority(true)
         val part=db.safeFile(t.session,t.name+".part")
@@ -156,62 +186,18 @@ class LinkService:Service() {
         requestChunk(t,part.length())
     }
     private fun requestChunk(t:Transfer,offset:Long) {
+        chunkRequestedMs=System.currentTimeMillis()
         send(JSONObject().put("type","chunk").put("session",t.session).put("name",t.name).put("offset",offset))
     }
     private val tick=object:Runnable { override fun run() {
-        personalize()
         if(PhoneLive.state.value.connected) {
             val now=System.currentTimeMillis()
+            if(pending!=null && now-chunkRequestedMs>20000) {pending=null;queue.clear();lastCatalog=0;PhoneLive.state.value=PhoneLive.state.value.copy(sync="Reanudando copia desde el último bloque recibido")}
             if(pending==null && now-lastCatalog>20000) { lastCatalog=now; send(JSONObject().put("type","catalog")) }
             else send(JSONObject().put("type","ping"))
-            analyze()
         }
         handler.postDelayed(this,3000)
     } }
-    private fun personalize() {
-        if(System.currentTimeMillis()-lastPersonalization>60000) {
-            runCatching{detector.setProfile(personalization.refresh(PhoneLive.state.value.session))}
-                .onFailure{android.util.Log.w("VisioDetector","Perfil local pendiente",it)}
-            lastPersonalization=System.currentTimeMillis()
-        }
-    }
-    private fun analyze() {
-        if(!getSharedPreferences("prefs",MODE_PRIVATE).getBoolean("detection",false)) { imu.clear(); detector.reset(); PhoneLive.state.value=PhoneLive.state.value.copy(calibrated=false,stage=-1); return }
-        if(!PhoneLive.state.value.recording || db.latestLive(detectorSession,"offbody")?.values?.get("worn")!="1") {
-            imu.clear(); detector.reset(); PhoneLive.state.value=PhoneLive.state.value.copy(calibrated=false,stage=-1); return
-        }
-        val sorted=imu.sortedBy{it.second.getLong("t_elapsed_ns")}; imu.clear()
-        for((_,row) in sorted) {
-            val t=row.getLong("t_elapsed_ns")
-            if(PhoneLive.state.value.watchElapsed>0 && PhoneLive.state.value.watchElapsed-t>10_000_000_000L){detector.reset();continue}
-            run {
-                val c=detector.accel(t,row.getDouble("x_m_s2"),row.getDouble("y_m_s2"),row.getDouble("z_m_s2")) ?: continue
-                val end=row.getLong("t_wall_ms"); val start=end-(c.endNs-c.startNs)/1000000
-                val details=JSONObject().put("gestures",c.gestures).put("max_angle_deg",c.maxAngle).put("peak_orientation_deg_s",c.peakSpeed)
-                    .put("method",c.method).put("evidence_windows",c.evidenceWindows)
-                    .put("hold_seconds",c.holdSeconds).put("direction_consistency",c.consistency).put("motion_fingerprint",org.json.JSONArray(c.fingerprint))
-                    .put("positive_similarity",c.positiveSimilarity).put("negative_similarity",c.negativeSimilarity)
-                    .put("positive_groups",detector.profile.positiveGroups).put("negative_groups",detector.profile.negativeGroups)
-                    .put("start_elapsed_ns",c.startNs).put("end_elapsed_ns",c.endNs).put("rules",GestureDetector.VERSION)
-                    .put("score_is_probability",false)
-                for((stream,key) in listOf("heart_rate" to "bpm","temperatura" to "skin_c")) {
-                    val s=db.latestLive(detectorSession,stream)
-                    val age=if(s==null)Long.MAX_VALUE else end-s.wall
-                    if(s!=null && age in 0..(if(stream=="heart_rate")30000L else 180000L) && s.values["status"]==(if(stream=="heart_rate")"1" else "0"))
-                        s.values[key]?.toDoubleOrNull()?.takeIf{it.isFinite()}?.let{details.put(key,it).put(key+"_age_ms",age)}
-                }
-                val features=details.toString()
-                val id=db.event(start,end,detectorSession,"POR_CLASIFICAR","automatic",features=features)
-                if(PhoneLive.state.value.protocol>=2)send(JSONObject().put("type","retain").put("id",id).put("kind","alerta_sin_confirmar").put("from",start).put("to",end))
-                Notices.candidate(this,id,false)
-                EspTrigger.pulse(this,id,"automatic")
-            }
-        }
-        // Status heartbeats can arrive before newer sensor batches. Do not mark fresh
-        // movement unavailable merely because its timestamp is ahead of the heartbeat.
-        val now=maxOf(PhoneLive.state.value.watchElapsed,sorted.lastOrNull()?.second?.getLong("t_elapsed_ns") ?: 0)
-        PhoneLive.state.value=PhoneLive.state.value.copy(calibrated=detector.calibrated(),stage=detector.stage(now))
-    }
     override fun onDestroy() {
         if(::handler.isInitialized) handler.post { handler.removeCallbacks(tick); endpoint?.stop(); worker.quitSafely() }
         PhoneLive.state.value=PhoneLive.state.value.copy(connected=false,recording=false,text="Enlace apagado")

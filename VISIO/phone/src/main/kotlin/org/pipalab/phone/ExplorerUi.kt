@@ -33,7 +33,7 @@ import kotlin.math.*
 private val Danger=Color(0xFFFF7185)
 internal data class RawQuery(val session:String,val stream:String,val from:Long,val to:Long)
 internal fun sensorDescription(metric:Metric):String=when(metric.label) {
-    "Pulso" -> "Latidos por minuto estimados por el sensor óptico. Aporta contexto fisiológico para comparar antes y después de un evento; por sí solo no identifica un consumo. Se excluyen las lecturas que el SDK marca inválidas."
+    "Pulso" -> "Latidos por minuto estimados por el sensor óptico. Aporta contexto fisiológico para comparar antes y después de un evento; por sí solo no identifica una actividad. Se excluyen las lecturas que el SDK marca inválidas."
     "Movimiento" -> "El acelerómetro mide aceleración en tres ejes, incluida la gravedad. Ayuda a reconocer elevación, pausa y retorno de la muñeca. No mide tu ubicación ni guarda GPS."
     "Giro" -> "El giroscopio mide la velocidad de rotación de la muñeca en tres ejes. Complementa al acelerómetro para distinguir trayectorias y pausas de un gesto."
     "IBI" -> "Tiempo entre latidos, en milisegundos. Sirve para estudiar cambios y variabilidad con ventanas suficientes y buena calidad. El promedio usa todos los intervalos válidos, no solo el último; se asignan al minuto del lote de origen."
@@ -41,29 +41,8 @@ internal fun sensorDescription(metric:Metric):String=when(metric.label) {
     "EDA" -> "Conductancia eléctrica de la piel, relacionada con la actividad de las glándulas sudoríparas. Puede aportar contexto de activación, sin identificar su causa. Este Galaxy Watch no ofrece EDA al SDK."
     "PPG","PPG IR","PPG rojo" -> "Señal óptica obtenida con luz verde, infrarroja o roja. Permite estudiar la forma de la onda y artefactos por movimiento. Estos valores son cuentas del sensor; no representan por sí mismos oxígeno en sangre."
     "Uso" -> "Indica si el reloj detecta contacto con la muñeca. Evita interpretar movimientos o señales ópticas cuando está fuera del cuerpo. 1 = puesto; 0 = fuera; desconocido no se promedia."
-    "Batería" -> "Carga del reloj. Ayuda a evaluar autonomía y a explicar interrupciones del registro. No se usa como indicador de consumo."
+    "Batería" -> "Carga del reloj. Ayuda a evaluar autonomía y a explicar interrupciones del registro. Es un estado auxiliar de la sesión."
     else -> "Señal auxiliar del registro local. Conserva su hora y estado de calidad."
-}
-
-@Composable internal fun StateMeter(link:LinkStatus,enabled:Boolean) {
-    val fresh=link.connected && link.recording && System.currentTimeMillis()-link.lastData<10000
-    val active=if(enabled && fresh)link.stage else -1
-    val names=listOf("Normal","Cuidado","Potencial\nconsumo")
-    val colors=listOf(Lime,Amber,Danger)
-    SurfaceCard {
-        Eyebrow("ESTADO DEL PATRÓN · EXPERIMENTAL")
-        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(6.dp)) {
-            names.forEachIndexed{i,name->Column(Modifier.weight(1f).clip(RoundedCornerShape(12.dp))
-                .background(if(active==i)colors[i].copy(alpha=.20f) else Ink)
-                .border(if(active==i)2.dp else 1.dp,if(active==i)colors[i] else Edge,RoundedCornerShape(12.dp))
-                .padding(horizontal=7.dp,vertical=10.dp).semantics{contentDescription=name.replace('\n',' ')+if(active==i)" seleccionado" else ""}) {
-                Box(Modifier.fillMaxWidth().height(5.dp).background(if(active==i)colors[i] else Edge,RoundedCornerShape(3.dp)))
-                Text(name,fontSize=12.sp,lineHeight=16.sp,color=if(active==i)colors[i] else Muted,fontWeight=if(active==i)FontWeight.Bold else FontWeight.Normal)
-            }}
-        }
-        Text(when(active){0->"No se observa el patrón de gestos en este momento.";1->"Gesto en curso o un gesto reciente. Aún no hay alerta.";2->"Se observó una secuencia candidata. Revisa la alerta para confirmar o descartar.";else->if(!enabled)"Activa Alertas de movimiento en Ajustes." else if(!fresh)"Sin evaluación: falta señal reciente del reloj." else "Sin evaluación: esperando reloj puesto y calibración en reposo."},fontSize=12.sp,color=Muted,lineHeight=17.sp)
-        Text("Los colores describen reglas de movimiento; no confirman consumo ni riesgo médico.",fontSize=10.sp,color=Muted,lineHeight=15.sp)
-    }
 }
 
 @Composable internal fun ChartExplorer(metric:Metric,index:Int,select:(Int)->Unit,points:List<Sample>,events:List<EventInfo>,window:TimeWindow,

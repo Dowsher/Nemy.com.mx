@@ -9,6 +9,8 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
 import kotlin.math.abs
+import org.pipalab.core.ActivityCapture
+import org.pipalab.core.ActivityTypes
 
 class RecorderService : Service(), SensorEventListener2, HealthSink {
     private lateinit var worker: HandlerThread
@@ -16,6 +18,9 @@ class RecorderService : Service(), SensorEventListener2, HealthSink {
     private lateinit var manager: SensorManager
     private var writer: SessionWriter? = null
     private var health: HealthSource? = null
+    private var audio: AudioCapture? = null
+    private var audioRequested = false
+    private val pointIds = mutableSetOf<String>()
     private var wake: PowerManager.WakeLock? = null
     private val activeSensors = mutableListOf<Sensor>()
     private val flushPending = mutableSetOf<Int>()
@@ -50,17 +55,38 @@ class RecorderService : Service(), SensorEventListener2, HealthSink {
         when (intent?.action) {
             "START" -> {
                 if (Live.state.value.active) return START_NOT_STICKY
+                val capture = runCatching { intent.getStringExtra("capture")?.let { ActivityCapture.parse(JSONObject(it)) } }.getOrNull()
+                if(intent.hasExtra("capture") && capture==null) { Live.state.value=RecorderStatus(message="Preparación inválida; no se inició la captura");stopSelf();return START_NOT_STICKY }
                 val cfg = SessionConfig(intent.getStringExtra("participant") ?: "", intent.getStringExtra("wrist") ?: "izq",
-                    intent.getStringExtra("dominant") ?: "der", intent.getStringExtra("power") ?: "auto", intent.getBooleanExtra("consent", false))
+                    intent.getStringExtra("dominant") ?: "der", intent.getStringExtra("power") ?: "auto", intent.getBooleanExtra("consent", false), capture)
                 if (!cfg.consent || !cfg.participant.matches(Regex("[A-Za-z0-9_-]{1,24}"))) { stopSelf(); return START_NOT_STICKY }
                 try {
-                    if (Build.VERSION.SDK_INT >= 34) startForeground(1, notification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_HEALTH)
+                    audioRequested = capture?.audio == true
+                    if (Build.VERSION.SDK_INT >= 34) startForeground(1, notification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_HEALTH or if(audioRequested) ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE else 0)
                     else startForeground(1, notification())
                     Live.state.value = RecorderStatus(active = true, message = "Preparando sesión…")
                     handler.post { safe { begin(cfg) } }
                 } catch (e: Exception) { Live.state.value = RecorderStatus(message = "No se pudo iniciar: ${e.message}"); stopSelf() }
             }
-            "STOP" -> handler.post { safe { requestStop("user", intent.getLongExtra("time", SystemClock.elapsedRealtimeNanos())) } }
+            "STOP" -> handler.post { safe {
+                if(!intent.hasExtra("training_id") || writer?.capture?.id == intent.getStringExtra("training_id")) requestStop("user", intent.getLongExtra("time", SystemClock.elapsedRealtimeNanos()))
+            } }
+            "POINT" -> handler.post { safe {
+                val out = writer ?: return@safe
+                if(stopping || (intent.hasExtra("training_id") && out.capture?.id != intent.getStringExtra("training_id"))) return@safe
+                val id = intent.getStringExtra("id") ?: UUID.randomUUID().toString()
+                val label = intent.getStringExtra("label").orEmpty()
+                if(label !in ActivityTypes.markers || !pointIds.add(id)) return@safe
+                val receipt = SystemClock.elapsedRealtimeNanos()
+                val requested = intent.getLongExtra("time", receipt).coerceIn(out.startNs, receipt)
+                val details = JSONObject().put("origin", intent.getStringExtra("origin") ?: "watch")
+                    .put("received_elapsed_ns", receipt).put("phone_wall_ms", intent.getLongExtra("phone_wall_ms", 0))
+                    .put("timing", if(intent.getStringExtra("origin") == "phone") "watch_receipt_includes_BLE_delay" else "watch_button_monotonic")
+                out.write("marcadores", requested, listOf(label, "POINT", id, details.toString()))
+                out.checkpoint()
+                PhoneBridge.notices.offer(JSONObject().put("type", "point_ack").put("id", id).put("ok", true).put("wall", out.wall(requested)).toString())
+                Live.state.value = Live.state.value.copy(message = "Marca: " + ActivityTypes.markers[label])
+            } }
             "RETAIN" -> handler.post {
                 val id=intent.getStringExtra("id").orEmpty()
                 runCatching {
@@ -90,11 +116,31 @@ class RecorderService : Service(), SensorEventListener2, HealthSink {
         val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         val stop = PendingIntent.getService(this, 1, Intent(this, RecorderService::class.java).setAction("STOP"), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         return Notification.Builder(this, "recording").setSmallIcon(R.drawable.ic_record).setContentTitle("Visio • grabando datos locales")
-            .setContentText("Toca para ver la sesión").setContentIntent(open).setOngoing(true).setOnlyAlertOnce(true)
+            .setContentText(if(audioRequested) "Sensores + micrófono activos · Detener para finalizar" else "Sensores activos · sin audio").setContentIntent(open).setOngoing(true).setOnlyAlertOnce(true)
             .addAction(Notification.Action.Builder(null, "Detener", stop).build()).build()
     }
     private fun begin(cfg: SessionConfig) {
         val out = SessionWriter(this, cfg); writer = out
+        cfg.capture?.let {
+            TrainingInbox.started(this, it.id)
+            out.write("marcadores", out.startNs, listOf(it.activity, "ACTIVITY_START", it.id, it.description))
+            if(it.audio) {
+                val captureAudio = AudioCapture(this, out.dir, out.startNs, out.startWall) { elapsed, peak, rms ->
+                    handler.post { safe {
+                        if(writer === out && !stopping) {
+                            val id=UUID.randomUUID().toString()
+                            val detail=JSONObject().put("peak",peak).put("rms",rms).put("method","acoustic_impulse_demo_v1").put("human_label",false)
+                            out.write("marcadores",elapsed,listOf("audio_transient","CANDIDATE",id,detail.toString()))
+                            PhoneBridge.notices.offer(JSONObject().put("type","audio_impulse").put("id",id).put("training_id",out.capture!!.id)
+                                .put("elapsed",elapsed).put("wall",out.wall(elapsed)).put("peak",peak).toString())
+                        }
+                    } }
+                }; audio = captureAudio
+                runCatching { captureAudio.start() }.onFailure { error -> out.put("audio", captureAudio.failed(error as? Exception ?: Exception(error))) }
+            }
+            Live.state.value = Live.state.value.copy(captureId = it.id, activity = it.activity, durationSeconds = it.durationSeconds, session = out.dir.name)
+            PhoneBridge.notices.offer(JSONObject().put("type", "meta").put("session", out.dir.name).put("meta", out.meta).toString())
+        }
         val inventory = JSONArray()
         var allWake = true
         for (type in listOf(Sensor.TYPE_ACCELEROMETER, Sensor.TYPE_LOW_LATENCY_OFFBODY_DETECT)) {
@@ -173,6 +219,7 @@ class RecorderService : Service(), SensorEventListener2, HealthSink {
             val out = writer ?: return@safe
             if (stopping) return@safe
             val now = SystemClock.elapsedRealtimeNanos()
+            out.capture?.let { if(now - out.startNs >= it.durationSeconds * 1_000_000_000L) { requestStop("duration", now); return@safe } }
             if (now - lastBattery >= 300_000_000_000L) { sampleBattery(); wake?.acquire(10 * 60 * 1000L) }
             if (now - lastCheckpoint >= 5_000_000_000L) {
                 val actualWall = System.currentTimeMillis()
@@ -185,7 +232,8 @@ class RecorderService : Service(), SensorEventListener2, HealthSink {
             val hz = out.stats.mapValues { it.value.hz() }
             val stale = listOf("acelerometro").any { now - (out.stats[it]?.last ?: out.startNs) > 6_000_000_000L }
             Live.state.value = RecorderStatus(true, false, (now - out.startNs) / 1_000_000_000, hz, counts, battery, event,
-                if (stale) "AVISO: IMU sin datos recientes" else "Grabando", out.dir.name, healthStatus)
+                if (stale) "AVISO: IMU sin datos recientes" else "Grabando", out.dir.name, healthStatus,
+                out.capture?.id.orEmpty(), out.capture?.activity.orEmpty(), out.capture?.durationSeconds ?: 0, audio?.state ?: AudioState())
             handler.postDelayed(this, 1000)
         }
     }
@@ -197,6 +245,8 @@ class RecorderService : Service(), SensorEventListener2, HealthSink {
         stopping = true; cutoff = maxOf(t, SystemClock.elapsedRealtimeNanos(), out.startNs); reason = why
         out.put("requested_stop_elapsed_ns", t)
         Live.state.value = Live.state.value.copy(stopping = true, message = "Vaciando buffers…")
+        audio?.let { out.put("audio", it.stop()) }; audio = null
+        out.capture?.let { out.write("marcadores", cutoff, listOf(it.activity, "ACTIVITY_END", it.id, why)) }
         event?.let { out.write("marcadores", cutoff, listOf(it, "END", eventId, "session_stop")) }; event = null
         out.write("marcadores", cutoff, listOf("SESSION", "END", out.dir.name, why))
         // Mantener registros durante flush; ignorar muestras posteriores al límite de sesión.
@@ -214,6 +264,7 @@ class RecorderService : Service(), SensorEventListener2, HealthSink {
         if (!flushed) out.error("flush", "Timeout de 15 s; revisar cola final")
         sampleBattery()
         out.finish(cutoff, reason, flushed)
+        PhoneBridge.notices.offer(JSONObject().put("type", "meta").put("session", out.dir.name).put("meta", out.meta).toString())
         writer = null; wake?.let { if (it.isHeld) it.release() }; wake = null
         handler.removeCallbacksAndMessages(null)
         Live.state.value = Live.state.value.copy(active = false, stopping = false, event = null, message = if (flushed) "Sesión guardada" else "Guardada con aviso de flush")
@@ -236,6 +287,7 @@ class RecorderService : Service(), SensorEventListener2, HealthSink {
     private inline fun safe(block: () -> Unit) {
         try { block() } catch (e: Exception) {
             manager.unregisterListener(this); runCatching { health?.stop() }
+            runCatching { audio?.let { writer?.put("audio", it.stop()) } }; audio = null
             runCatching { writer?.finish(SystemClock.elapsedRealtimeNanos(), "error:${e.javaClass.simpleName}", false) }; writer = null
             wake?.let { if (it.isHeld) it.release() }; wake = null
             Live.state.value = Live.state.value.copy(active = false, stopping = false, message = "Registro interrumpido: ${e.message}")
@@ -246,6 +298,7 @@ class RecorderService : Service(), SensorEventListener2, HealthSink {
         unregisterReceiver(screenReceiver)
         handler.post { safe {
             manager.unregisterListener(this); health?.stop()
+            audio?.let { writer?.put("audio", it.stop()) }; audio = null
             writer?.finish(SystemClock.elapsedRealtimeNanos(), "service_destroyed", false); writer = null
             wake?.let { if (it.isHeld) it.release() }; wake = null
             Live.state.value = Live.state.value.copy(active = false, stopping = false)

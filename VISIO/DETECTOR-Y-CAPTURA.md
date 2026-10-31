@@ -1,6 +1,6 @@
-# Detector personal y captura esencial · Visio 0.5
+# Detector personal y captura esencial · Visio 0.6
 
-Teléfono 0.5.0-pilot; reloj 0.4.0-pilot. Los identificadores de app se mantienen para conservar datos y claves. Los modelos personales y las señales permanecen en el teléfono; el repositorio no contiene datos de entrenamiento del usuario.
+Teléfono 0.6.0-pilot; reloj 0.5.0-pilot (código fuente; las APK de `apps/` siguen siendo 0.5.0/0.4.0). Los identificadores de app se mantienen para conservar datos y claves. Los modelos personales y las señales permanecen en el teléfono; el repositorio no contiene datos de entrenamiento del usuario.
 
 ## Captura
 
@@ -13,32 +13,83 @@ Teléfono 0.5.0-pilot; reloj 0.4.0-pilot. Los identificadores de app se mantiene
 
 La carga nominal de señales pasa de aproximadamente 126 filas/s (acelerómetro 50 + giro 50 + PPG 25 + pulso 1) a 26 filas/s (movimiento 25 + pulso 1), más la temperatura de baja cadencia. Es una reducción aproximada del 79 % en eventos de señal solicitados, **no una medición de ahorro de batería**. Las frecuencias reales, el almacenamiento y el consumo dependen de dispositivo, eventos y conexión.
 
-## Detector `motion-personal-v2`
+## Detector `motion-episodes-v3`
 
-El detector combina dos vías. Siempre exige captura activa, contacto conocido y señal reciente:
+Sustituye a `motion-personal-v2` (teléfono 0.6.0-pilot, reloj 0.5.0-pilot). Solo usa el acelerómetro, funciona igual a 25 y 50 Hz y siempre exige captura activa, contacto conocido y señal reciente.
 
-1. **Secuencia geométrica:** filtra gravedad con una constante temporal, calibra una postura de reposo, busca elevación, pausa y retorno, y exige repeticiones con direcciones y amplitudes coherentes. Rechaza golpes fuertes, cambios lentos de postura, muestras no finitas y huecos superiores a 350 ms. Las constantes usan tiempo real, no un número fijo de muestras; funciona sin giroscopio. Un parecido mayor con ejemplos descartados exige una repetición adicional.
-2. **Perfil personal:** compara descriptores de movimiento de ocho segundos con ventanas de eventos confirmados y falsos positivos. Usa orientación, aceleración dinámica, velocidad de cambio de orientación, excursión angular y proporción de pausa. Escala las distancias con dispersión robusta y mínimos por canal. Necesita al menos cuatro grupos confirmados y un descarte útil para activar esta vía. Requiere dos ventanas sin solapamiento con similitud alta y margen sobre los descartes; una ventana repetida no suma votos independientes.
+**Episodios de mano levantada.** La gravedad se filtra con τ = 0,3 s. De ella salen la elevación del antebrazo (eje X del reloj hacia la mano) y el giro de la muñeca. Un episodio empieza cuando el antebrazo pasa de 15° y termina cuando baja 20° respecto a donde se sostuvo o gira a una postura claramente distinta (más de 40°) durante más de 1,5 s. Solo cuentan como «sostenidas» las muestras quietas: velocidad angular suavizada menor de 30 °/s y aceleración dinámica menor de 1,5 m/s². Huecos de más de 350 ms, valores no finitos o magnitudes imposibles borran el episodio en curso.
 
-Ambas vías comparten cinco minutos de separación entre alertas. Una reconexión o cambio de contacto borra evidencia parcial sin borrar esa separación. No se evalúan lotes viejos como si fueran movimiento actual. Las alertas nuevas conservan la versión, método, características y tamaño del perfil; activan la revisión humana y, si está conectado y habilitado, el LED. Entrenar, sincronizar o revisar eventos anteriores no dispara el LED.
+**Regla general «mano a la boca».** Alerta si el episodio cumple todo esto:
 
-La similitud es **una distancia transformada, no una probabilidad de consumo**. Las reglas y umbrales son de desarrollo. La frecuencia cardíaca y temperatura válidas se adjuntan como contexto; no se usan como prueba de consumo, no identifican sustancias y no crean una alerta por sí mismas.
+- elevación media de 30° o más;
+- al menos 4 s sostenidos;
+- subida de al menos 20° desde la postura mínima de los 10 s previos;
+- duración total de 60 s o menos;
+- movimiento fino (mediana de bloques de 1 s) de 1,5 m/s² o menos.
+
+Así se excluyen sorbos breves, llamadas o barbilla apoyada por más de un minuto, inclinaciones bajas, sacudidas y cambios de postura sin retorno. La alerta llega al bajar la mano, unos 1,5 s después de terminar el sostén. La etapa 1 («posible») se muestra mientras la mano sigue arriba.
+
+**Perfil personal por episodios.** Compara el episodio con los ejemplos revisados mediante siete rasgos:
+
+- dirección media de la gravedad;
+- logaritmo del tiempo sostenido;
+- movimiento fino;
+- subida;
+- dispersión del giro.
+
+Las escalas son robustas y tienen mínimos por rasgo. Tiene dos usos:
+
+1. **Veto:** un episodio que cumple la regla no alerta si se parece más a un descarte que a cualquier confirmado (similitud ≥ 0,6 y margen de 0,1).
+2. **Extensión:** un episodio deliberado que no cumple la regla puede alertar si se parece a ejemplos de al menos dos eventos confirmados distintos y supera a los descartes por 0,15. Se considera deliberado si tiene ≥ 15°, ≥ 3 s sostenido y ≥ 10° de subida. Requiere al menos tres grupos confirmados y un descarte. Las posturas de reposo nunca califican.
+
+Entre alertas hay al menos 120 s. En la sesión revisada las marcas de consumo estaban separadas por 3 min o más, así que cada uno puede avisar. Una reconexión o pérdida de contacto borra el episodio en curso, pero no esa separación. Las alertas guardan método, rasgos con nombre (`elevation_deg`, `rise_deg`, `stable_seconds`…), similitudes y grupos de apoyo. La similitud es **una distancia transformada, no una probabilidad de consumo**. La frecuencia cardíaca y la temperatura se adjuntan como contexto; no prueban nada ni crean alertas.
 
 ## Aprendizaje local y etiquetas
 
-La app reconstruye el perfil, como máximo una vez por minuto mientras el servicio está activo, cuando cambian etiquetas o datos retenidos. Emplea solo eventos revisados del mismo participante anónimo, muñeca y mano dominante. Excluye notificaciones de prueba, controles sin etiqueta, eventos sin sesión, registros manuales sin enlace y ventanas sin contacto conocido o con señal insuficiente. Cada evento aporta como máximo 16 descriptores; un evento largo no genera miles de ejemplos.
+El perfil se reconstruye como máximo una vez por minuto, con eventos revisados del mismo participante, muñeca y mano dominante. Las exclusiones son las mismas que antes: pruebas, controles sin etiqueta, eventos sin sesión, marcas sin enlace y ventanas sin contacto.
 
-El perfil se guarda en `files/personal-detector-v2.json`, dentro del almacenamiento privado de Android. Si una corrección vuelve a «Por revisar» o cambia de clase, la reconstrucción elimina su clasificación anterior. No se incorporan medidas ni descriptores personales a la APK o al Git.
+Una revisión etiqueta una ventana, no el instante exacto del acto. Por eso los ejemplos se eligen así (`MotionEpisodes.exemplars`):
 
-Los eventos sin sesión asociada no reciben señales de otra hora. Si no hay temperatura válida en las ventanas etiquetadas, no se ajusta un supuesto patrón térmico. Los recuentos y resultados particulares del conjunto de mediciones permanecen fuera de esta documentación pública.
+- **Alerta automática:** aporta su propio episodio.
+- **Marca confirmada:** aporta su episodio más parecido a «mano a la boca».
+- **Descarte:** aporta todos sus episodios deliberados como negativos.
+- **Ventanas solapadas:** un mismo episodio físico cuenta para un solo evento.
+
+Las marcas manuales de consumo conservan **120 s antes** y 30 s después de la marca; antes eran 30 s. El búfer del reloj guarda 210 s, y el acto suele quedar antes de la marca.
+
+El perfil se guarda en `files/personal-detector-v3.json`, en el almacenamiento privado de Android. No se incorporan medidas ni descriptores personales a la APK o al Git.
 
 ## Comprobaciones y límites
 
-Las pruebas unitarias cubren funcionamiento a 25/50 Hz, discontinuidades, valores inválidos, trayectorias opuestas, cambios de postura, separación entre alertas, descartes y evidencia temporal independiente. Compilación y Lint se ejecutan para ambos APK.
+Las pruebas unitarias cubren los siguientes casos:
 
-`tools/ReplayDetector.java` permite reproducir eventos privados utilizando el mismo extractor Kotlin de la app. La revisión retrospectiva separa los eventos al construir el perfil de comparación; no divide aleatoriamente filas vecinas. Una reproducción retrospectiva durante el desarrollo no constituye una tasa de acierto validada. Se requieren grupos independientes, cobertura suficiente y varios eventos negativos útiles para evaluar generalización y especificidad; las filas vecinas de una misma sesión no son observaciones independientes.
+- funcionamiento a 25/50 Hz y aviso en vivo;
+- separación entre alertas, también tras reconectar;
+- sorbo breve, sostén de más de un minuto, inclinación baja y cambio de postura sin retorno;
+- huecos, valores no finitos y sacudidas;
+- igualdad entre extracción en vivo y en diferido;
+- veto por descarte;
+- extensión personal con grupos suficientes y su ausencia con grupos insuficientes o en reposo;
+- selección de ejemplos por evento.
 
-La mejora está implementada y utiliza las correcciones reales; su precisión futura debe evaluarse con más eventos independientes y actividades cotidianas etiquetadas. Las pruebas largas y de gestos físicos quedan a cargo del usuario, como solicitó.
+Compilación y Lint se ejecutan para ambos APK.
+
+`scripts/reproducir_detector.ps1 -Json <exportación>` convierte una exportación JSON (`tools/eventos_json.py`) y reproduce cada evento con el mismo código Kotlin (`tools/ReplayDetector.java`). Cada evento se evalúa con un perfil construido sin él. El resultado queda en `datos/`, fuera de Git.
+
+Resultados con la exportación del 31-oct-2026 (7 eventos con señal, 25 y 50 Hz):
+
+| Detector | Consumos confirmados (6) | Simulación | Ventana descartada |
+| --- | --- | --- | --- |
+| v3, regla general | 1 alerta, 3,5 s antes de la marca | 1 alerta | ninguna |
+| v2, reproducción anterior | candidatos en 5 | ninguno | ninguno |
+
+En v3, los otros cinco consumos no muestran la mano del reloj elevada sobre 25° dentro de las ventanas exportadas. Puede que el acto haya quedado fuera de los ±30 s o que lo hiciera la otra mano. Los candidatos de v2 salían de su vía de ventanas de 8 s, incluso con el brazo en reposo. Su similitud con la ventana descartada era 0,95–0,96, casi igual que entre positivos, porque todos los ejemplos son de la misma sesión. Ninguna cifra es una tasa de acierto validada: las ventanas son cortas, de una sola sesión y con un solo negativo, y no permiten estimar falsas alarmas por día.
+
+Para validar hacen falta tres cosas:
+
+1. Sesiones de días normales.
+2. Marcas hechas al empezar el acto.
+3. Revisión de cada alerta, incluidas las de actividades parecidas: beber, comer, llamar o mirar el reloj.
 
 ## Referencias consultadas
 

@@ -18,7 +18,8 @@ import org.pipalab.core.*
 
 /** Acceso confinado al HandlerThread de captura. CSV UTF-8; escritura incremental, RAM acotada. */
 class SessionWriter(context: Context, config: SessionConfig) {
-    val compact = context.getSharedPreferences("setup",Context.MODE_PRIVATE).getBoolean("compact",true)
+    val capture = config.capture
+    val compact = capture == null && context.getSharedPreferences("setup",Context.MODE_PRIVATE).getBoolean("compact",true)
     val startNs = SystemClock.elapsedRealtimeNanos()
     val startWall = System.currentTimeMillis()
     val dir: File
@@ -45,10 +46,10 @@ class SessionWriter(context: Context, config: SessionConfig) {
         .put("android_release", Build.VERSION.RELEASE).put("api", Build.VERSION.SDK_INT)
         .put("build_display", Build.DISPLAY).put("app_version", BuildConfig.VERSION_NAME)
         .put("samsung_enabled", BuildConfig.SAMSUNG_ENABLED).put("start_elapsed_ns", startNs).put("start_wall_ms", startWall)
-        .put("sampling_period_us", 40000).put("sensor_profile","essential_v2").put("detector_version",GestureDetector.VERSION).put("timestamp_wall_policy", "IMU: wall at session anchor + elapsed delta; reloj.csv tracks wall changes")
+        .put("sampling_period_us", 40000).put("sensor_profile","essential_v3_training").put("detector_version","disabled_training").put("timestamp_wall_policy", "IMU: wall at session anchor + elapsed delta; reloj.csv tracks wall changes")
         .put("samsung_timestamp_policy", "source retained; epoch/elapsed inferred at reception; unknown uses receipt, never a guaranteed sample clock")
         .put("offbody_timestamp_policy", "cached pre-session state applies at receipt; source_elapsed_ns retains sensor timestamp; unknown until first event")
-        .put("network_permission", false).put("sync_policy", "manual marker then 3 claps; align IMU peaks offline; no microphone")
+        .put("network_permission", false).put("sync_policy", "sensor elapsedRealtime and optional audio BOOTTIME anchors; manual markers retain origin and receipt times")
     init {
         require(config.consent && config.participant.matches(Regex("[A-Za-z0-9_-]{1,24}")))
         val root = File(requireNotNull(context.getExternalFilesDir(null)) { "Almacenamiento no disponible" }, "sesiones")
@@ -56,11 +57,12 @@ class SessionWriter(context: Context, config: SessionConfig) {
         dir = File(root, "${config.participant}_${stamp}_${UUID.randomUUID().toString().take(8)}")
         check(dir.mkdirs()) { "No se pudo crear sesión" }
         meta.put("session", dir.name)
-        meta.put("schema_version",if(compact)3 else 2).put("storage_policy",if(compact)"compact_v2" else "full_raw")
+        capture?.let { meta.put("training", it.json()).put("audio", JSONObject().put("requested", it.audio).put("state", if(it.audio) "starting" else "off")) }
+        meta.put("schema_version",if(capture!=null)4 else if(compact)3 else 2).put("storage_policy",if(compact)"compact_v2" else "full_raw")
             .put("retention",JSONObject().put("summary_seconds",60).put("continuous_slow_streams",JSONArray(listOf("heart_rate","temperatura"))).put("memory_buffer_seconds",210).put("control_seconds",10)
                 .put("control_period_seconds",300).put("event_context_seconds",30).put("manual_seconds",30))
         meta.put("permissions_granted", JSONObject().also { grants ->
-            (Permissions.foreground() + listOfNotNull(Permissions.background())).forEach { permission ->
+            (Permissions.foreground() + listOfNotNull(Permissions.background()) + if(capture?.audio==true)listOf(android.Manifest.permission.RECORD_AUDIO) else emptyList()).forEach { permission ->
                 grants.put(permission, context.checkSelfPermission(permission) == android.content.pm.PackageManager.PERMISSION_GRANTED)
             }
         })
@@ -85,7 +87,7 @@ class SessionWriter(context: Context, config: SessionConfig) {
         val previous = stat.last
         val missing = stat.add(t, period)
         val fields=Schema.columns.getValue(name).split(',').mapIndexed{i,k->k to (values.getOrNull(i)?.toString() ?: "")}.toMap()
-        if(compact) minutes.add(name,wallMs,fields)
+        if(compact || capture != null) minutes.add(name,wallMs,fields)
         if(name=="offbody") {worn=fields["worn"]=="1";if(!worn)detector.reset()}
         if(compact && name in measurementStreams) {
             val index=(liveIndices[name] ?: 0)+1;liveIndices[name]=index
@@ -93,9 +95,6 @@ class SessionWriter(context: Context, config: SessionConfig) {
             if(name=="acelerometro") training.add(TrainingRow(name,index,t,wallMs,values.toList()))
             else persist(name,t,values,wallMs)
 
-            if(worn && name=="acelerometro") detector.accel(t,fields.getValue("x_m_s2").toDouble(),fields.getValue("y_m_s2").toDouble(),fields.getValue("z_m_s2").toDouble())?.let{c->
-                training.preserve(UUID.randomUUID().toString(),"patron_sin_confirmar",wall(c.startNs)-30000,wall(c.endNs)+30000)
-            }
         } else persist(name,t,values,wallMs)
         if (missing > 0) write("huecos", t, listOf(name, previous, t - previous, missing, "internal_estimate"))
     }
@@ -120,7 +119,7 @@ class SessionWriter(context: Context, config: SessionConfig) {
     }
     fun retain(id:String,kind:String,from:Long,to:Long):TrainingWindow=training.preserve(id,kind,from,to)
     private fun summaries(all:Boolean=false) {
-        if(!compact)return
+        if(!compact && capture == null)return
         val now=System.currentTimeMillis()
         minutes.ready(now,all).forEach{s->
             val channels=JSONObject();s.channels.forEach{(k,v)->channels.put(k,JSONObject().put("n",v.count).put("mean",v.mean).put("min",v.min).put("max",v.max).put("sd",v.sd))}
@@ -157,7 +156,7 @@ class SessionWriter(context: Context, config: SessionConfig) {
             if (stat != null && endNs - last > 60_000_000) write("huecos", endNs, listOf(name, last, endNs - last, (endNs - last) / 40_000_000, "trailing_estimate"))
         }
         meta.put("end_elapsed_ns", endNs).put("end_wall_ms", wall(endNs)).put("stop_reason", reason)
-            .put("flush_completed", flushComplete).put("finalized", true).put("status", if (reason == "user") "completed" else "interrupted")
+            .put("flush_completed", flushComplete).put("finalized", true).put("status", if (reason in setOf("user", "duration")) "completed" else "interrupted")
         summaries(true);checkpoint(true)
         open.values.forEach { it.writer.close() }; open.clear(); closed = true
     }

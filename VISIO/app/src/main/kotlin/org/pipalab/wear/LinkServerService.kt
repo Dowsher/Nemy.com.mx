@@ -52,6 +52,8 @@ class LinkServerService:Service() {
         thread=HandlerThread("LocalPhoneLink").apply{start()}; handler=Handler(thread.looper)
         handler.post {
             runCatching {
+                TrainingInbox.recoverInterrupted(this)
+                TrainingInbox.load(this)
                 val key=PairingKeys.load(this) ?: error("Configura el vínculo desde la PC")
                 endpoint=BleServer(this,handler,key,{ connected=it; PhoneBridge.connection(it) },::request).also{it.start()}
                 handler.post(pulse)
@@ -78,7 +80,11 @@ class LinkServerService:Service() {
         endpoint?.send(JSONObject().put("type","status").put("recording",live.active).put("session",live.session)
             .put("wall",System.currentTimeMillis()).put("battery",live.battery).put("health",live.health)
             .put("elapsed",SystemClock.elapsedRealtimeNanos())
-            .put("sensor_profile","essential_v2").put("motion_hz",25).put("protocol",2).put("compact",getSharedPreferences("setup",MODE_PRIVATE).getBoolean("compact",true)).toString())
+            .put("sensor_profile","essential_v3_training").put("motion_hz",25).put("protocol",3).put("compact",live.captureId.isBlank() && getSharedPreferences("setup",MODE_PRIVATE).getBoolean("compact",true))
+            .put("training_id",live.captureId).put("activity",live.activity).put("seconds",live.seconds).put("duration_seconds",live.durationSeconds)
+            .put("pending_training_id",TrainingInbox.pending.value?.id.orEmpty()).put("audio_state",live.audio.state)
+            .put("audio_seconds",live.audio.seconds).put("audio_peak",live.audio.peak).put("audio_silenced",live.audio.silenced)
+            .put("audio_message",live.audio.message).put("stopping",live.stopping).toString())
     }
     private fun sha(file:File):String {
         val key=file.absolutePath
@@ -90,6 +96,27 @@ class LinkServerService:Service() {
     private fun request(text:String) {
         val j=JSONObject(text)
         when(j.getString("type")) {
+            "training_prepare" -> {
+                val capture = ActivityCapture.parse(j.getJSONObject("capture"))
+                val state = TrainingInbox.prepare(this, capture)
+                endpoint?.send(JSONObject().put("type", "training_ack").put("id", capture.id).put("state", state).toString())
+                heartbeat()
+            }
+            "training_cancel" -> {
+                val id=j.getString("id")
+                endpoint?.send(JSONObject().put("type", "training_ack").put("id", id)
+                    .put("state", if(TrainingInbox.cancel(this,id)) "cancelled" else "not_pending").toString())
+                heartbeat()
+            }
+            "training_stop" -> if(Live.state.value.active && Live.state.value.captureId == j.getString("id")) {
+                startService(Intent(this, RecorderService::class.java).setAction("STOP").putExtra("training_id", j.getString("id")))
+            }
+            "training_point" -> if(Live.state.value.active && Live.state.value.captureId == j.getString("training_id")) {
+                require(j.getString("id").matches(Regex("[A-Za-z0-9_-]{1,80}")))
+                startService(Intent(this, RecorderService::class.java).setAction("POINT").putExtra("id", j.getString("id"))
+                    .putExtra("training_id", j.getString("training_id")).putExtra("label", j.getString("label"))
+                    .putExtra("origin", "phone").putExtra("phone_wall_ms", j.optLong("phone_wall_ms")))
+            }
             "retain" -> {
                 val id=j.getString("id");require(id.matches(Regex("[A-Za-z0-9_-]{1,80}")))
                 if(!Live.state.value.active) endpoint?.send(JSONObject().put("type","retain_ack").put("id",id).put("ok",false).put("message","Inicia una sesión en el reloj").toString())
@@ -109,7 +136,7 @@ class LinkServerService:Service() {
                     if(m.exists()) {
                         val meta=JSONObject(m.readText())
                         if(meta.optBoolean("finalized")) sessions.put(JSONObject().put("session",dir.name).put("meta",meta).put("files",
-                            JSONArray().also{a->dir.listFiles()?.filter{it.extension=="csv" || it.name=="meta.json"}?.forEach{
+                            JSONArray().also{a->dir.listFiles()?.filter{it.isFile && ActivityTypes.transferable(it.name)}?.sortedBy { if(it.extension=="wav") "z"+it.name else it.name }?.forEach{
                                 a.put(JSONObject().put("name",it.name).put("size",it.length()).put("sha",sha(it)))
                             }}))
                         else if(dir.name==Live.state.value.session) endpoint?.send(JSONObject().put("type","meta").put("session",dir.name).put("meta",meta).toString())
@@ -120,6 +147,7 @@ class LinkServerService:Service() {
             "chunk" -> {
                 val id=j.getString("session"); val name=j.getString("name"); val offset=j.getLong("offset")
                 require(id.matches(Regex("[A-Za-z0-9_-]{1,120}")) && name.matches(Regex("[A-Za-z0-9_.-]{1,100}")) && !name.contains(".."))
+                require(ActivityTypes.transferable(name))
                 val dir=File(root,id); val file=File(dir,name)
                 require(dir.canonicalFile.parentFile==root.canonicalFile && file.canonicalFile.parentFile==dir.canonicalFile)
                 require(JSONObject(File(dir,"meta.json").readText()).optBoolean("finalized"))

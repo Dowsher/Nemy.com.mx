@@ -2,7 +2,7 @@ plugins { id("com.android.application"); id("org.jetbrains.kotlin.plugin.compose
 android {
     namespace = "org.pipalab.phone"
     compileSdk = 37
-    defaultConfig { applicationId = "org.pipalab.wear"; minSdk = 31; targetSdk = 36; versionCode = 8; versionName = "0.5.0-pilot" }
+    defaultConfig { applicationId = "org.pipalab.wear"; minSdk = 31; targetSdk = 36; versionCode = 10; versionName = "0.7.0-training" }
     buildFeatures { compose = true; buildConfig = true }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     packaging { resources.excludes += "/META-INF/{AL2.0,LGPL2.1}" }

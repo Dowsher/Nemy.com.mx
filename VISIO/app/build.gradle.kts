@@ -16,8 +16,8 @@ android {
         applicationId = "org.pipalab.wear"
         minSdk = 30
         targetSdk = 36
-        versionCode = 6
-        versionName = "0.4.0-pilot"
+        versionCode = 7
+        versionName = "0.5.0-training"
         buildConfigField("boolean", "SAMSUNG_ENABLED", (!motionOnly).toString())
     }
     sourceSets.getByName("main").kotlin.srcDir(if (motionOnly) "src/motion/kotlin" else "src/samsung/kotlin")

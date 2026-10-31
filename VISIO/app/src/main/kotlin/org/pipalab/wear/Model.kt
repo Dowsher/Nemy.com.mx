@@ -6,12 +6,14 @@ import android.os.Handler
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.json.JSONObject
 
-data class SessionConfig(val participant: String, val wrist: String, val dominant: String, val power: String, val consent: Boolean)
+data class SessionConfig(val participant: String, val wrist: String, val dominant: String, val power: String, val consent: Boolean,
+    val capture: org.pipalab.core.ActivityCapture? = null)
 data class RecorderStatus(
     val active: Boolean = false, val stopping: Boolean = false, val seconds: Long = 0,
     val hz: Map<String, Double> = emptyMap(), val counts: Map<String, Long> = emptyMap(),
     val battery: Int = -1, val event: String? = null, val message: String = "Listo",
-    val session: String = "", val health: String = "Sin comprobar"
+    val session: String = "", val health: String = "Sin comprobar", val captureId: String = "",
+    val activity: String = "", val durationSeconds: Int = 0, val audio: AudioState = AudioState()
 )
 object Live { val state = MutableStateFlow(RecorderStatus()) }
 val EVENT_NAMES = listOf("PIPA_SIM", "CIGARRO", "VAPE", "ENCENDEDOR_SOLO", "COMER", "BEBER", "TELEFONO", "CEPILLARSE", "OTRO", "REPOSO")

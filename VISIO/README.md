@@ -1,57 +1,42 @@
 # Visio · ecosistema Nemy
 
-Aplicaciones Android y Wear OS para registrar señales, explorar el historial, etiquetar consumos y corregir falsos positivos. Incluye firmware ESP32-S3 para activar un LED ante nuevas detecciones experimentales. Datos locales y enlaces Bluetooth.
+Apps Android/Wear OS para crear una base de actividades con señales reales, audio opcional, descripciones por dictado local y revisión humana. Teléfono **0.7.0-training**, reloj **0.5.0-training**.
 
-## Contenido
+**Aprender** ajusta modelos personales con movimiento, pulso y temperatura, compara versiones con sesiones reservadas y conserva la posibilidad de volver atrás. No aprende de sus propias predicciones. Las sugerencias requieren evidencia suficiente y se abstienen ante señales ambiguas. La demo acústica → LED responde a impulsos breves; todavía no es un reconocedor entrenado de encendedores o chasquidos.
+
+## Empezar
+
+Lee [ENTRENAMIENTO.md](ENTRENAMIENTO.md). Abre Visio en el reloj y enlaza el teléfono. En Capturar elige tipo, descripción, duración y audio; confirma el inicio en el reloj. Al terminar, revisa la sesión y acepta, corrige o excluye el ejemplo. Reserva algunas sesiones para evaluación antes de iniciarlas.
 
 | Carpeta | Contenido |
 | --- | --- |
-| `phone/` | Código de Visio Mobile 0.5.0-pilot |
-| `app/` | Código de Visio Wear 0.4.0-pilot |
-| `core/` | Protocolos, señales, ventanas de registro y reglas compartidas |
-| `esp32s3-led/` | Código de VisioLED 0.1.0, ESP-IDF 5.5.2 |
-| `apps/` | APK del teléfono y reloj, iguales a las entregadas |
-| `firmware/VisioLED-XIAO/` | Binarios de la placa XIAO ESP32-S3, flash de 8 MB |
-| `scripts/` y `tools/` | Compilación, conexión, descarga y análisis |
+| phone/ | App del teléfono, revisión y aprendizaje local |
+| app/ | Captura del reloj, audio y enlace cifrado |
+| core/ | Protocolos, señales, WAV y detector de impulsos de demostración |
+| apps/ | APK instaladas, con hashes en ENTREGA.json |
+| tools/ | Capturador Zoom para Windows y pruebas |
+| esp32s3-led/ | Firmware ESP-IDF del LED |
+| firmware/VisioLED-XIAO/ | Binarios XIAO ESP32-S3 |
 
-Las gráficas permiten zoom, recorrido temporal, selección de puntos y marcas de consumos confirmados. El historial incluye promedios por minuto, lecturas retenidas y mediciones manuales de 30 segundos. El modo compacto conserva resúmenes y segmentos relevantes. La interfaz usa tema oscuro, verde y gris.
+El historial previo se conserva; las guías APP-TELEFONO.md y DETECTOR-Y-CAPTURA.md documentan versiones anteriores. La interfaz vigente es la de entrenamiento.
 
-Guía: [APP-TELEFONO.md](APP-TELEFONO.md). Estado: [ESTADO.md](ESTADO.md). Instalación: [apps/README.md](apps/README.md). Firmware: [esp32s3-led/README.md](esp32s3-led/README.md).
+## Compilar
 
-## Compilar Android
-
-Usar Android Studio, su JDK 21, Android SDK Platform 37, Build-Tools 36 y Platform-Tools. El wrapper fija Gradle y las dependencias del proyecto. `scripts/entorno.ps1` configura JDK/SDK solo para la consola actual.
+Android Studio/JDK 21, SDK Platform 37 y Build-Tools 36. En PowerShell:
 
 ```powershell
 . .\scripts\entorno.ps1
-.\gradlew.bat :phone:assembleDebug :app:assembleDebug
+.\gradlew.bat :core:testDebugUnitTest :phone:testDebugUnitTest :phone:assembleDebug :app:assembleDebug
 ```
 
-APK generadas: `phone/build/outputs/apk/debug/phone-debug.apk` y `app/build/outputs/apk/debug/app-debug.apk`.
+El Samsung Health Sensor SDK no se redistribuye. Descárgalo desde el [portal oficial](https://developer.samsung.com/health/sensor/overview.html), acepta sus condiciones y coloca un único AAR en app/libs. Ver SDK-PROVENIENCIA.txt. `-PmotionOnly=true` permite compilar sin sensores Samsung.
 
-El Samsung Health Sensor SDK 1.4.1 **no se redistribuye en este repositorio ni en el ZIP de fuentes**. Al clonar el repositorio en otra computadora, descargarlo desde el [portal oficial de Samsung](https://developer.samsung.com/health/sensor/overview.html), aceptar sus términos y colocar un único `.aar` en `app/libs/`. Consultar `SDK-PROVENIENCIA.txt`. Sin ese SDK se puede compilar la variante de movimiento con `-PmotionOnly=true`, que no incluye los sensores de salud Samsung.
+Para la Zoom: ejecuta tools/ABRIR-CAPTURA.cmd con Python 3.11+ con Tcl/Tk y FFmpeg. Los WAV y etiquetas permanecen en Descargas/Visio-Captura-Zoom/capturas. El índice se regenera con tools/index_zoom_dataset.py. No se graba hasta pulsar Grabar.
 
-Para los sensores Samsung, el reloj necesita Health Sensor Service y su modo de desarrollador habilitado. Esta entrega es un piloto; distribuir con ese SDK requiere atender sus condiciones. No se incluye código del ejemplo propietario de Samsung.
+## Entrega y límites
 
-## Repositorio y descarga
+Esta carpeta contiene código, APK y firmware; excluye mediciones, audio personal, modelos privados, respaldos y claves. Los modelos se crean dentro del teléfono y solo salen mediante exportación local del usuario. No se asignó una licencia de código abierto al proyecto. [Estado verificable](ESTADO.md).
 
-Visio forma parte de [Dowsher/Nemy.com.mx](https://github.com/Dowsher/Nemy.com.mx), dentro de `VISIO/`. Para trabajar desde una copia nueva:
+El proyecto se integra en [Dowsher/Nemy.com.mx](https://github.com/Dowsher/Nemy.com.mx) bajo VISIO/. La evaluación reservada no demuestra generalización a personas o ambientes nuevos. El reconocimiento aprendido de sonidos sigue pendiente; los WAV son material de entrenamiento. La cadena física nueva reloj/audio/dictado/LED requiere pruebas del usuario.
 
-```powershell
-git clone https://github.com/Dowsher/Nemy.com.mx.git
-cd Nemy.com.mx/VISIO
-```
-
-El código completo se puede revisar directamente en estas carpetas o descargar como [ZIP de fuentes](Visio-fuente-completa.zip). Las [APK del teléfono y reloj](apps/) y el [firmware de XIAO ESP32-S3](firmware/VisioLED-XIAO/) están disponibles por separado; el ZIP de fuentes no duplica las APK. Incluye las pruebas, scripts y documentación necesarios para reconstruir el proyecto, con el SDK Samsung como dependencia externa.
-
-`ENTREGA.json` identifica las revisiones de origen y versiones de la entrega. `SHA256SUMS.txt` permite comprobar los archivos publicados; el ZIP lleva su propio manifiesto de integridad. No se incluyen mediciones, etiquetas personales, perfiles de entrenamiento, respaldos de dispositivos, credenciales ni claves privadas. `.gitignore` también excluye el AAR propietario y los archivos locales de desarrollo. No se asignó una licencia de código abierto al proyecto.
-
-Las copias de lectura rápida en la raíz (`GestureDetector.kt`, `RecorderService.kt`, `EspLedService.kt`, `LocalProtocol.kt`, `LedProtocol.kt` y `main.c`) se mantienen sincronizadas con sus rutas de compilación en `core/`, `app/`, `phone/` y `esp32s3-led/` para conservar los enlaces existentes.
-
-## Límites del piloto
-
-Las alertas combinan reglas experimentales con un perfil personal aprendido localmente de eventos revisados; no son un diagnóstico ni tienen precisión validada. No prueban que hubo consumo. Las correcciones se conservan para entrenamiento posterior. El pulso/IBI requieren contacto y calidad válida; EDA no estuvo disponible en el reloj utilizado. La prueba completa de gesto real → alerta → LED y las pruebas largas quedan a cargo del usuario.
-
-## Detector personal y captura esencial
-
-La versión 0.5 conserva pulso, temperatura y movimiento de 25 Hz. El detector usa ventanas personales revisadas y gestos coherentes, sin giroscopio. El perfil se reconstruye en el almacenamiento privado del teléfono. Ver [DETECTOR-Y-CAPTURA.md](DETECTOR-Y-CAPTURA.md) para funcionamiento, comprobaciones y límites. El JSON personal de consumos entregado por separado no pertenece a este repositorio.
+[Descargar código completo](Visio-fuente-completa.zip) · [APK instalables](apps/)
