@@ -1,0 +1,12 @@
+Samsung Health Sensor SDK: 1.4.1
+Origen: https://developer.samsung.com/health/sensor/overview.html
+Archivo oficial: samsung-health-sensor-sdk-v1.4.1.zip
+AAR: app/libs/samsung-health-sensor-api-1.4.1.aar
+SHA-256 AAR: 893cd5d6564db0f304bf511a555c1d65ca6bccc8475fc979ff1d71d50680344c
+Descarga autenticada en Samsung Developer y aceptación de licencia autorizada por el usuario.
+El AAR se conserva localmente, excluido del repositorio Git y del ZIP de fuentes.
+
+Ejemplo oficial revisado: SkinTemperatureCompleteCode.zip
+Origen: https://developer.samsung.com/codelab/health/skin-temperature.html
+Archivos revisados dentro del ZIP: SkinTempTracking/app/src/main/AndroidManifest.xml y app/build.gradle.
+No se copió el código propietario del ejemplo al proyecto.

@@ -1,0 +1,23 @@
+{
+  "phone": {
+    "version": "0.4.1-pilot",
+    "sha256": "99689d2873e28634bb19a438795199b6452276c2ec1255cb237ead3c417414dc",
+    "bytes": 30144993,
+    "installed_matches": true
+  },
+  "watch": {
+    "version": "0.3.0-pilot",
+    "sha256": "694cabeeaa807de26b51ff14e68c2b1d8a31060a680141abbc8dd05e1e196a48",
+    "bytes": 29743503,
+    "installed_matches": true
+  },
+  "source_commit": "e0c5436501a5bba06b5d1cb679c50ef391119e65",
+  "package": "Visio-Nemy",
+  "date": "2026-10-31",
+  "local_only_ignored": [
+    "app/libs/samsung-health-sensor-api-1.4.1.aar"
+  ],
+  "personal_measurements_included": false,
+  "private_keys_included": false,
+  "remote_configured": false
+}
