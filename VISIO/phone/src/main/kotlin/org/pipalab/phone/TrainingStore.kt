@@ -46,7 +46,7 @@ class TrainingStore(private val store: Store) {
         } }
     }
     fun status(id: String, state: String) {
-        require(state in setOf("requested","prepared","busy","pending_other","already_started","cancelled","not_pending","unsupported","unconfirmed","sending_stop"))
+        require(state in setOf("draft","not_ready","expired","requested","prepared","busy","pending_other","already_started","cancelled","not_pending","unsupported","unconfirmed","sending_stop"))
         db.execSQL("UPDATE training_sessions SET status=? WHERE id=? AND watch_session=''",arrayOf(state,id))
     }
     fun ingestMeta(session: String, meta: JSONObject) {

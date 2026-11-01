@@ -6,22 +6,46 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
 object Exporter {
-    fun writeTraining(db:Store,out:OutputStream,learning:JSONObject?=null) {
+    fun writeTraining(db:Store,out:OutputStream,learning:JSONObject?=null,captureId:String?=null) {
         val training=TrainingStore(db)
-        val records=training.records()
+        val records=training.records().filter {captureId==null || it.id==captureId}
+        require(captureId==null || records.size==1)
+        val media=SessionMedia(db)
+        require(records.none { it.status in setOf("recording","finishing") || media.read(it.id).optString("state") in setOf("starting","recording","saving") }) {"Termina las sesiones activas antes de exportar."}
         val ids=records.map{it.session}.filter{it.isNotBlank()}.toSet()
         ZipOutputStream(out.buffered()).use { zip ->
             fun entry(name:String,text:String) {zip.putNextEntry(ZipEntry(name));zip.write(text.toByteArray());zip.closeEntry()}
-            entry("dataset.json",training.export().toString(2))
+            val dataset=training.export()
+            if(captureId!=null) {
+                for(table in listOf("training_sessions","training_reviews","training_transcripts","training_point_requests")) {
+                    val a=dataset.getJSONArray(table);val filtered=org.json.JSONArray()
+                    for(i in 0 until a.length()) {val row=a.getJSONObject(i);if(row.optString(if(table=="training_sessions")"id" else "training_id")==captureId)filtered.put(row)}
+                    dataset.put(table,filtered)
+                }
+                val typeIds=records.map{it.typeId}.toMutableSet()
+                records.forEach {typeIds.add(JSONObject(it.original).optString("type_id"))}
+                val reviews=dataset.getJSONArray("training_reviews")
+                for(i in 0 until reviews.length())typeIds.add(reviews.getJSONObject(i).optString("type_id"))
+                val types=dataset.getJSONArray("activity_types");val selectedTypes=org.json.JSONArray()
+                for(i in 0 until types.length())if(types.getJSONObject(i).optString("id") in typeIds)selectedTypes.put(types.getJSONObject(i))
+                dataset.put("activity_types",selectedTypes)
+            }
+            entry("dataset.json",dataset.put("schema","visio-multimodal-dataset-v2").toString(2))
             learning?.let{entry("aprendizaje.json",it.toString(2))}
-            entry("actuaciones_led.csv",db.exportLed())
+            if(captureId==null)entry("actuaciones_led.csv",db.exportLed())
             entry("LEEME.txt","""
-                Visio 0.7 · base de datos de actividades
+                Visio 0.8 · base de datos de actividades con video
+                telefono/<training_id>/video.mp4 y capture.json pertenecen al id de training_sessions.
+                training_sessions.watch_session enlaza los originales del reloj en sesiones/<watch_session>/.
+                Nuevas sesiones: cámara frontal SD (~480p; dimensiones reales en capture.json), sin audio del teléfono.
+                capture.json incluye comandos de voz, cierre, SHA-256 y referencias de tiempo; la sincronización es aproximada.
+                watch_elapsed_ns = phone_elapsed_ns + watch_minus_phone_ns. Origen del video estimado por callbacks CameraX.
+                La incertidumbre de red es RTT/2; la demora de los callbacks de cámara no está medida. No asumir sincronía exacta.
                 aprendizaje.json conserva versiones, características y resultados del modelo local cuando esté incluido.
                 original_spec.evaluation_only=true reserva la sesión para evaluación; nunca entrena los prototipos.
                 Las actividades son etiquetas humanas de sesiones. Revisar antes de entrenar: review=accepted/excluded/unreviewed.
                 technical_test=1 nunca es un ejemplo de actividad. Conservar esos registros como comprobaciones técnicas.
-                Cada sesión incluye las filas originales retenidas de movimiento a 25 Hz, pulso/IBI y temperatura.
+                Las sesiones nuevas solicitan acelerómetro y giroscopio a 25 Hz, pulso/IBI y temperatura. Verificar disponibilidad, calidad y huecos.
                 Audio opcional: WAV PCM16 mono 16 kHz, audio.json y audio_timeline.csv con anclas BOOTTIME/estimación declarada.
                 audio.state=failed/empty/interrupted o ausencia de audio.wav no equivale a grabación válida.
                 Las transcripciones son anotaciones de voz del teléfono, no etiquetas automáticas ni sincronización palabra a palabra.
@@ -33,6 +57,18 @@ object Exporter {
                 La exportación es local y contiene audio, texto y señales personales. No se incluye ninguna clave privada.
             """.trimIndent())
             val manifest=org.json.JSONArray()
+            val phoneManifest=org.json.JSONArray()
+            for(record in records) {
+                val files=org.json.JSONArray()
+                for(file in media.files(record.id)) {
+                    zip.putNextEntry(ZipEntry("telefono/${record.id}/${file.name}"));file.inputStream().use{it.copyTo(zip)};zip.closeEntry()
+                    files.put(JSONObject().put("name",file.name).put("sha256",db.sha(file)).put("bytes",file.length()))
+                }
+                val capture=media.read(record.id);val video=media.video(record.id)
+                phoneManifest.put(JSONObject().put("training_id",record.id).put("watch_session",record.session).put("files",files).put("capture",capture)
+                    .put("video_matches_finalized_hash",video.exists() && capture.optString("video_sha256").isNotBlank() && db.sha(video)==capture.optString("video_sha256")))
+            }
+            entry("telefono-manifiesto.json",phoneManifest.toString(2))
             for(session in db.sessions().filter{it.id in ids}) {
                 val files=org.json.JSONArray()
                 val missing=org.json.JSONArray()

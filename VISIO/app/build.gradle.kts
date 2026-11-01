@@ -16,12 +16,13 @@ android {
         applicationId = "org.pipalab.wear"
         minSdk = 30
         targetSdk = 36
-        versionCode = 7
-        versionName = "0.5.0-training"
+        versionCode = 8
+        versionName = "0.6.0-capture"
         buildConfigField("boolean", "SAMSUNG_ENABLED", (!motionOnly).toString())
     }
     sourceSets.getByName("main").kotlin.srcDir(if (motionOnly) "src/motion/kotlin" else "src/samsung/kotlin")
     buildFeatures { compose = true; buildConfig = true }
+    testOptions { unitTests.isIncludeAndroidResources = true }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     packaging { resources.excludes += "/META-INF/{AL2.0,LGPL2.1}" }
     lint { abortOnError = true }
@@ -38,4 +39,5 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
     if (!motionOnly) implementation(samsungAars)
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.robolectric:robolectric:4.17")
 }

@@ -8,14 +8,21 @@ import org.pipalab.core.PcmWave
 import java.io.File
 import android.util.AtomicFile
 
-/** A phone request is only prepared here. Capture starts from the visible watch activity. */
+/** Persistent idempotency and cancellation ledger for authenticated phone commands. */
 object TrainingInbox {
     val pending = MutableStateFlow<ActivityCapture?>(null)
+    @Synchronized fun blocked(context:Context,id:String) = id in context.getSharedPreferences("training",0).getStringSet("cancelled_ids",emptySet()).orEmpty()
+    @Synchronized fun block(context:Context,id:String) {
+        val prefs=context.getSharedPreferences("training",0)
+        check(prefs.edit().putStringSet("cancelled_ids",prefs.getStringSet("cancelled_ids",emptySet()).orEmpty()+id).commit())
+        cancel(context,id)
+    }
     @Synchronized fun load(context: Context) {
         pending.value = runCatching { ActivityCapture.parse(JSONObject(context.getSharedPreferences("training", 0).getString("pending", "")!!)) }.getOrNull()
     }
     @Synchronized fun prepare(context: Context, request: ActivityCapture): String {
         val prefs = context.getSharedPreferences("training", 0)
+        if(blocked(context,request.id)) return "cancelled"
         if (request.id in prefs.getStringSet("used_ids", emptySet()).orEmpty()) return "already_started"
         if (Live.state.value.active) return "busy"
         val previous = pending.value

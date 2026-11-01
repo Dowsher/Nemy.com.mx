@@ -1,29 +1,32 @@
 {
   "package": "Visio-Nemy",
-  "date": "2026-10-31",
-  "source_commit": "fa04a006e9dafc71dea99787f97b87b735f413e1",
+  "date": "2026-11-01",
+  "source_commit": "88d9a22945d8a270961f1f1e1652b42880bc4e76",
   "personal_measurements_included": false,
   "private_keys_included": false,
-  "physical_training_audio_dictation_led_test": "pending",
   "tests": {
-    "core": 26,
-    "phone": 7,
-    "watch": 2,
+    "core": 31,
+    "phone": 11,
+    "app": 5,
     "zoom": 2
   },
+  "installed_this_release": false,
+  "physical_multimodal_test": "pending; no devices connected",
   "phone": {
-    "version": "0.7.0-training",
-    "sha256": "20bcedd6dfdb0e26d187a7237bb96e6f11f0593f5d20ee966c64c22bc83137bc",
-    "bytes": 31151965,
-    "installed_matches": true
+    "version": "0.8.0-sessions",
+    "sha256": "deb15946603b5e6d5959961852f93c32d3a73009f12d2033b335ee31a9a9552b",
+    "bytes": 41657174,
+    "installed_matches": null,
+    "ready_to_install": true
   },
   "watch": {
-    "version": "0.5.0-training",
-    "sha256": "cd1196b8cfd8b2c57f7b9e7c9e9e357b2703a76874324d89a69e5569332cf8c8",
-    "bytes": 29841923,
-    "installed_matches": true
+    "version": "0.6.0-capture",
+    "sha256": "1deb928323a0a666e4f999e862116cfc669e6cecc1c87278c28763568661a01f",
+    "bytes": 29602267,
+    "installed_matches": null,
+    "ready_to_install": true
   },
-  "package_commit": "f6c3a9b4785dd1539d8475f5be744eee6e22b538",
+  "package_commit": "048165b3609ba67d985879b87ad4faa3be7145ff",
   "repository": "https://github.com/Dowsher/Nemy.com.mx",
   "repository_path": "VISIO"
 }

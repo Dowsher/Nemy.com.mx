@@ -70,90 +70,48 @@ class MainActivity : ComponentActivity() {
     }
     @Composable private fun App() {
         val live by Live.state.collectAsState()
-        val pending by TrainingInbox.pending.collectAsState()
-        val prefs = remember { getSharedPreferences("setup", MODE_PRIVATE) }
-        var participant by rememberSaveable { mutableStateOf(prefs.getString("participant", "P001") ?: "P001") }
-        var wrist by rememberSaveable { mutableStateOf(prefs.getString("wrist", "izq") ?: "izq") }
-        var dominant by rememberSaveable { mutableStateOf(prefs.getString("dominant", "der") ?: "der") }
-        var consent by rememberSaveable { mutableStateOf(false) }
-        var audio by rememberSaveable { mutableStateOf(false) }
-        var duration by rememberSaveable { mutableIntStateOf(60) }
-        var type by rememberSaveable { mutableStateOf("rest") }
-        var setup by rememberSaveable { mutableStateOf(false) }
-        val actualAudio = pending?.audio ?: audio
-        val missing = remember(permissionEpoch, actualAudio) {
-            (Permissions.foreground() + if(actualAudio) listOf(Manifest.permission.RECORD_AUDIO) else emptyList()).filterNot(::granted)
-        }
-        val green = Color(0xFFB2FF69)
-        val root = remember { getExternalFilesDir(null)?.let { File(it, "sesiones") } }
-        Column(Modifier.fillMaxSize().background(Color.Black).verticalScroll(rememberScrollState()).padding(horizontal=28.dp, vertical=42.dp),
-            horizontalAlignment=Alignment.CenterHorizontally, verticalArrangement=Arrangement.spacedBy(10.dp)) {
-            Text("Visio", color=green, fontSize=25.sp)
-            Text("DATOS DE ENTRENAMIENTO", fontSize=10.sp, textAlign=TextAlign.Center)
+        val ready by RemoteReady.state.collectAsState()
+        val prefs=remember {getSharedPreferences("setup",MODE_PRIVATE)}
+        var participant by rememberSaveable {mutableStateOf(prefs.getString("participant","P001") ?: "P001")}
+        var setup by rememberSaveable {mutableStateOf(false)}
+        val required=Permissions.foreground()+listOf(Manifest.permission.RECORD_AUDIO,Manifest.permission.BLUETOOTH_CONNECT,Manifest.permission.BLUETOOTH_ADVERTISE)
+        val missing=remember(permissionEpoch){required.filterNot(::granted)}
+        val green=Color(0xFFB2FF69)
+        Column(Modifier.fillMaxSize().background(Color.Black).verticalScroll(rememberScrollState()).padding(horizontal=26.dp,vertical=40.dp),
+            horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(10.dp)) {
+            Text("Visio",color=green,fontSize=28.sp)
+            Text("CAPTURADOR / NEMY",fontSize=11.sp)
+            Text(if(live.active) "● GRABANDO" else if(ready) "LISTO PARA EL TELÉFONO" else "CAPTURA APAGADA",color=green,fontSize=16.sp,textAlign=TextAlign.Center)
             if(live.active) {
-                Text(live.activity.ifBlank { "Registro anterior" }, fontSize=20.sp, textAlign=TextAlign.Center)
-                Text("%02d:%02d".format(live.seconds / 60, live.seconds % 60), fontSize=30.sp)
-                if(live.durationSeconds > 0) Text("Límite ${live.durationSeconds} s", fontSize=12.sp)
-                Text(when(live.audio.state) {
-                    "recording" -> if(live.audio.silenced) "MICRÓFONO SILENCIADO POR ANDROID" else "● MICRÓFONO GRABANDO"
-                    "failed", "empty" -> "Audio no válido: " + live.audio.message
-                    "closed" -> "Audio guardado"
-                    else -> "Audio desactivado"
-                }, color=if(live.audio.state == "recording" && !live.audio.silenced) green else Color(0xFFFFCE7A), fontSize=12.sp, textAlign=TextAlign.Center)
-                Text("Movimiento %.1f Hz\nPulso %d · temperatura %d".format(live.hz["acelerometro"] ?: 0.0, live.counts["heart_rate"] ?: 0, live.counts["temperatura"] ?: 0), fontSize=12.sp, textAlign=TextAlign.Center)
-                Big(if(live.stopping) "Guardando…" else "DETENER Y GUARDAR", !live.stopping) {
-                    startService(Intent(this@MainActivity, RecorderService::class.java).setAction("STOP").putExtra("time", SystemClock.elapsedRealtimeNanos()))
-                }
-                Text("Marcas manuales", fontSize=13.sp)
-                org.pipalab.core.ActivityTypes.markers.forEach { (id, label) -> Big("Marcar · $label", !live.stopping) {
-                    startService(Intent(this@MainActivity, RecorderService::class.java).setAction("POINT").putExtra("label", id).putExtra("time", SystemClock.elapsedRealtimeNanos()))
-                } }
-                Text(live.message, fontSize=11.sp, textAlign=TextAlign.Center)
-                Text("Batería ${live.battery}% · señales locales", fontSize=11.sp, textAlign=TextAlign.Center)
+                Text(live.activity,fontSize=18.sp,textAlign=TextAlign.Center)
+                Text("%02d:%02d".format(live.seconds/60,live.seconds%60),fontSize=28.sp)
+                Text("Audio: ${live.audio.state}\nPulso: ${live.counts["heart_rate"] ?: 0} · Piel: ${live.counts["temperatura"] ?: 0}\nAcel.: ${live.counts["acelerometro"] ?: 0} · Giro: ${live.counts["giroscopio"] ?: 0}",fontSize=12.sp,textAlign=TextAlign.Center)
+                if(live.audio.silenced)Text("MICRÓFONO SILENCIADO",color=Color(0xFFFFCE7A),fontSize=12.sp)
+                Big(if(live.stopping)"Guardando…" else "DETENER",!live.stopping) {startService(Intent(this@MainActivity,RecorderService::class.java).setAction("STOP"))}
             } else {
-                Text(live.message, fontSize=12.sp, textAlign=TextAlign.Center)
-                Big("Enlazar teléfono", action=::link)
-                if(pending != null) {
-                    Text("PREPARADA EN EL TELÉFONO", color=green, fontSize=10.sp, textAlign=TextAlign.Center)
-                    Text(pending!!.activity, fontSize=21.sp, textAlign=TextAlign.Center)
-                    if(pending!!.description.isNotBlank()) Text(pending!!.description, fontSize=12.sp, textAlign=TextAlign.Center)
-                    Text("${pending!!.durationSeconds} s · " + if(actualAudio) "Con audio" else "Sin audio", fontSize=13.sp)
-                    Big("Cancelar preparación") { TrainingInbox.cancel(this@MainActivity, pending!!.id) }
-                } else {
-                    Text("Elige y describe la actividad en el teléfono, o usa una categoría aquí.", fontSize=12.sp, textAlign=TextAlign.Center)
-                    Big(org.pipalab.core.ActivityTypes.defaults.getValue(type)) {
-                        val types = org.pipalab.core.ActivityTypes.defaults.keys.toList()
-                        type = types[(types.indexOf(type) + 1) % types.size]
+                Text(if(ready)"Crea, inicia y revisa las sesiones desde el teléfono. Ahora no se graban audio ni sensores."
+                    else "Activa el capturador una vez. El teléfono podrá iniciar audio, pulso, temperatura y movimiento durante cada sesión.",fontSize=12.sp,textAlign=TextAlign.Center)
+                if(missing.isNotEmpty()) Big("Permitir captura") {permissions.launch(missing.toTypedArray())}
+                Big(if(ready)"APAGAR CAPTURADOR" else "LISTO PARA EL TELÉFONO",ready || missing.isEmpty()) {
+                    if(ready)startService(Intent(this@MainActivity,RecorderService::class.java).setAction("DISARM"))
+                    else {
+                        prefs.edit().putString("participant",participant.ifBlank {"P001"}).apply()
+                        startForegroundService(Intent(this@MainActivity,RecorderService::class.java).setAction("ARM"))
+                        link()
                     }
-                    Big("Duración: $duration s") { duration = when(duration) { 30 -> 60; 60 -> 120; 120 -> 300; else -> 30 } }
-                    Big(if(audio) "☑ Grabar audio" else "☐ Grabar audio") { audio = !audio }
                 }
-                Text(if(actualAudio) "Se grabará el micrófono de este reloj durante la sesión. Detener cierra audio y sensores. Evita registrar conversaciones de otras personas."
-                    else "Se guardarán movimiento, pulso y temperatura durante esta sesión.", fontSize=12.sp, textAlign=TextAlign.Center)
-                Big(if(consent) "☑ Acepto esta captura" else "☐ Acepto esta captura") { consent = !consent }
-                if(missing.isNotEmpty()) Big("Permitir sensores" + if(actualAudio) " y micrófono" else "") { permissions.launch(missing.toTypedArray()) }
-                if(!BuildConfig.SAMSUNG_ENABLED) Text("Solo movimiento: sensores Samsung no incluidos", fontSize=12.sp, textAlign=TextAlign.Center)
-                Big(if(actualAudio) "INICIAR CON AUDIO" else "INICIAR SESIÓN", consent && missing.isEmpty() && participant.matches(Regex("[A-Za-z0-9_-]{1,24}"))) {
-                    val capture = pending ?: org.pipalab.core.ActivityCapture(java.util.UUID.randomUUID().toString(), type,
-                        org.pipalab.core.ActivityTypes.defaults.getValue(type), "", audio, duration, System.currentTimeMillis())
-                    prefs.edit().putString("participant", participant).putString("wrist", wrist).putString("dominant", dominant).apply()
-                    startForegroundService(Intent(this@MainActivity, RecorderService::class.java).setAction("START")
-                        .putExtra("participant", participant).putExtra("wrist", wrist).putExtra("dominant", dominant).putExtra("power", "auto")
-                        .putExtra("consent", true).putExtra("capture", capture.json().toString()))
-                }
-                Big(if(setup) "Ocultar configuración" else "Participante y permisos") { setup = !setup }
-                if(setup) {
-                    Text("Código anónimo", fontSize=13.sp)
-                    BasicTextField(participant, { participant = it.filter { c -> c.isLetterOrDigit() && c.code < 128 || c == '-' || c == '_' }.take(24) }, singleLine=true,
-                        textStyle=TextStyle(color=Color.White, fontSize=20.sp, textAlign=TextAlign.Center), cursorBrush=SolidColor(Color.White),
-                        modifier=Modifier.fillMaxWidth().background(Color(0xFF242A2A), RoundedCornerShape(16.dp)).padding(14.dp))
-                    Big("Muñeca: ${if(wrist == "izq") "izquierda" else "derecha"}") { wrist = if(wrist == "izq") "der" else "izq" }
-                    Big("Dominante: ${if(dominant == "izq") "izquierda" else "derecha"}") { dominant = if(dominant == "izq") "der" else "izq" }
-                    Permissions.background()?.let { permission -> if(!granted(permission)) Big("Salud en segundo plano") { permissions.launch(arrayOf(permission)) } }
-                    Big("Ajustes de permisos") { startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))) }
-                    Big("Apagar enlace") { stopService(Intent(this@MainActivity, LinkServerService::class.java)) }
-                    Text("${root?.listFiles()?.count { it.isDirectory } ?: 0} sesiones locales. Se conservan hasta exportarlas.", fontSize=11.sp, textAlign=TextAlign.Center)
-                }
+                Big("Reactivar enlace",missing.isEmpty(),::link)
+            }
+            Text(live.message,fontSize=11.sp,textAlign=TextAlign.Center)
+            Text("Audio y CSV se conservan aquí hasta copiarse al teléfono. Si Android reinicia la app, vuelve a activar el capturador.",fontSize=11.sp,textAlign=TextAlign.Center)
+            Big(if(setup)"Cerrar ajustes" else "Ajustes") {setup=!setup}
+            if(setup) {
+                Text("Código anónimo",fontSize=12.sp)
+                BasicTextField(participant,{participant=it.filter {c->c.isLetterOrDigit() && c.code<128 || c=='_' || c=='-'}.take(24)},singleLine=true,
+                    textStyle=TextStyle(color=Color.White,fontSize=18.sp),modifier=Modifier.fillMaxWidth().padding(12.dp))
+                Big("Guardar código") {prefs.edit().putString("participant",participant.ifBlank {"P001"}).apply()}
+                Permissions.background()?.let {permission->if(!granted(permission))Big("Salud en segundo plano") {permissions.launch(arrayOf(permission))}}
+                Big("Permisos del sistema") {startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,Uri.parse("package:$packageName")))}
             }
         }
     }

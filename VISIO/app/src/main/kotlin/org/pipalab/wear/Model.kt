@@ -15,6 +15,7 @@ data class RecorderStatus(
     val session: String = "", val health: String = "Sin comprobar", val captureId: String = "",
     val activity: String = "", val durationSeconds: Int = 0, val audio: AudioState = AudioState()
 )
+object RemoteReady { val state = MutableStateFlow(false) }
 object Live { val state = MutableStateFlow(RecorderStatus()) }
 val EVENT_NAMES = listOf("PIPA_SIM", "CIGARRO", "VAPE", "ENCENDEDOR_SOLO", "COMER", "BEBER", "TELEFONO", "CEPILLARSE", "OTRO", "REPOSO")
 

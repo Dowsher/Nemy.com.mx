@@ -10,8 +10,8 @@ import java.io.File
 import java.io.RandomAccessFile
 import java.util.Base64
 
-data class LinkStatus(val text:String="Enlace apagado",val connected:Boolean=false,val recording:Boolean=false,val session:String="",val lastData:Long=0,val battery:Int=-1,val sync:String="",val calibrated:Boolean=false,val clockDelta:Long=0,val compact:Boolean=false,val protocol:Int=1,val stage:Int=-1,val watchElapsed:Long=0,val trainingId:String="",val pendingTrainingId:String="",val activity:String="",val seconds:Long=0,val durationSeconds:Int=0,val audioState:String="off",val audioSeconds:Double=0.0,val audioPeak:Double=0.0,val audioSilenced:Boolean=false,val audioMessage:String="",val stopping:Boolean=false)
-object PhoneLive { val state=MutableStateFlow(LinkStatus()) }
+data class LinkStatus(val text:String="Enlace apagado",val connected:Boolean=false,val recording:Boolean=false,val session:String="",val lastData:Long=0,val battery:Int=-1,val sync:String="",val calibrated:Boolean=false,val clockDelta:Long=0,val compact:Boolean=false,val protocol:Int=1,val stage:Int=-1,val watchElapsed:Long=0,val trainingId:String="",val pendingTrainingId:String="",val activity:String="",val seconds:Long=0,val durationSeconds:Int=0,val audioState:String="off",val audioSeconds:Double=0.0,val audioPeak:Double=0.0,val audioSilenced:Boolean=false,val audioMessage:String="",val stopping:Boolean=false,val remoteReady:Boolean=false,val statusReceivedNs:Long=0)
+object PhoneLive { val state=MutableStateFlow(LinkStatus()); val clock=SessionClock() }
 class LinkService:Service() {
     private lateinit var worker:HandlerThread
     private lateinit var handler:Handler
@@ -41,7 +41,7 @@ class LinkService:Service() {
                 val key=PairingKeys.load(this) ?: error("Falta configurar el vínculo privado")
                 endpoint=BleClient(this,handler,key,{ text,ready ->
                     PhoneLive.state.value=PhoneLive.state.value.copy(text=text,connected=ready,recording=if(ready) PhoneLive.state.value.recording else false)
-                    if(!ready) { pending=null; queue.clear(); lastDemoImpulse=0L; getSharedPreferences("prefs",MODE_PRIVATE).edit().putBoolean("audio_demo",false).apply() }
+                    if(!ready) { PhoneLive.clock.clear(); pending=null; queue.clear(); lastDemoImpulse=0L; getSharedPreferences("prefs",MODE_PRIVATE).edit().putBoolean("audio_demo",false).apply() }
                 },::receive).also{it.start()}
                 handler.post(tick)
             }.onFailure{PhoneLive.state.value=LinkStatus(text=it.message ?: "Error al conectar"); stopSelf()}
@@ -49,12 +49,22 @@ class LinkService:Service() {
     }
     override fun onStartCommand(intent:Intent?,flags:Int,id:Int):Int {
         if(intent?.action=="STOP") stopSelf()
-        if(intent?.action in setOf("TRAINING_PREPARE","TRAINING_CANCEL","TRAINING_STOP","TRAINING_POINT")) handler.post {
+        if(intent?.action in setOf("TRAINING_START","TRAINING_PREPARE","TRAINING_CANCEL","TRAINING_STOP","TRAINING_POINT")) handler.post {
             val training=TrainingStore(db)
             val key=intent?.getStringExtra("id") ?: return@post
             val live=PhoneLive.state.value
+            if(intent.action=="TRAINING_STOP") {
+                val prefs=getSharedPreferences("capture_stop",0)
+                prefs.edit().putStringSet("ids",prefs.getStringSet("ids",emptySet()).orEmpty()+key).commit()
+            }
             if(!live.connected || live.protocol<3) { if(intent.action=="TRAINING_PREPARE")training.status(key,if(live.connected)"unsupported" else "unconfirmed");return@post }
             when(intent.action) {
+                "TRAINING_START" -> training.records().find{it.id==key}?.let {
+                    val probe=PhoneLive.clock.best(SystemClock.elapsedRealtimeNanos())
+                    if(live.protocol<4 || !live.remoteReady || probe==null) training.status(key,"not_ready")
+                    else send(JSONObject().put("type","training_start").put("capture",JSONObject(it.original))
+                        .put("expires_watch_ns",SystemClock.elapsedRealtimeNanos()+probe.offset+10_000_000_000L))
+                }
                 "TRAINING_PREPARE" -> training.records().find{it.id==key}?.let {
                     send(JSONObject().put("type","training_prepare").put("capture",JSONObject(it.original)))
                     handler.postDelayed({training.records().find{r->r.id==key && r.status=="requested"}?.let{training.status(key,"unconfirmed")}},12000)
@@ -90,6 +100,12 @@ class LinkService:Service() {
         try {
             val j=JSONObject(text)
             when(j.getString("type")) {
+                "clock_pong" -> PhoneLive.clock.add(ClockProbe(j.getLong("p1"),j.getLong("w2"),j.getLong("w3"),SystemClock.elapsedRealtimeNanos()))
+                "stop_ack" -> {
+                    val prefs=getSharedPreferences("capture_stop",0)
+                    prefs.edit().putStringSet("ids",prefs.getStringSet("ids",emptySet()).orEmpty()-j.getString("id")).commit()
+                    TrainingStore(db).status(j.getString("id"),"cancelled")
+                }
                 "status" -> {
                     val recording=j.getBoolean("recording"); val session=j.optString("session")
                     if(session!=PhoneLive.state.value.session)lastDemoImpulse=0L
@@ -98,7 +114,7 @@ class LinkService:Service() {
                     PhoneLive.state.value=PhoneLive.state.value.copy(recording=recording,session=session,battery=j.optInt("battery",-1),clockDelta=System.currentTimeMillis()-j.getLong("wall"),compact=j.optBoolean("compact"),protocol=j.optInt("protocol",1),watchElapsed=j.optLong("elapsed"))
                     PhoneLive.state.value=PhoneLive.state.value.copy(trainingId=j.optString("training_id"),pendingTrainingId=j.optString("pending_training_id"),activity=j.optString("activity"),
                         seconds=j.optLong("seconds"),durationSeconds=j.optInt("duration_seconds"),audioState=j.optString("audio_state","off"),audioSeconds=j.optDouble("audio_seconds",0.0),
-                        audioPeak=j.optDouble("audio_peak",0.0),audioSilenced=j.optBoolean("audio_silenced"),audioMessage=j.optString("audio_message"),stopping=j.optBoolean("stopping"))
+                        audioPeak=j.optDouble("audio_peak",0.0),audioSilenced=j.optBoolean("audio_silenced"),audioMessage=j.optString("audio_message"),stopping=j.optBoolean("stopping"),remoteReady=j.optBoolean("remote_ready"),statusReceivedNs=SystemClock.elapsedRealtimeNanos())
                     TrainingStore(db).live(j.optString("training_id"),session,recording,j.optBoolean("stopping"),j.optString("audio_state","off"),j.optDouble("audio_seconds",0.0))
                     if(wasRecording && !recording) lastCatalog=0
                     wasRecording=recording
@@ -192,6 +208,8 @@ class LinkService:Service() {
     private val tick=object:Runnable { override fun run() {
         if(PhoneLive.state.value.connected) {
             val now=System.currentTimeMillis()
+            if(PhoneLive.state.value.protocol>=4) send(JSONObject().put("type","clock_ping").put("p1",SystemClock.elapsedRealtimeNanos()))
+            getSharedPreferences("capture_stop",0).getStringSet("ids",emptySet()).orEmpty().forEach {send(JSONObject().put("type","training_stop").put("id",it))}
             if(pending!=null && now-chunkRequestedMs>20000) {pending=null;queue.clear();lastCatalog=0;PhoneLive.state.value=PhoneLive.state.value.copy(sync="Reanudando copia desde el último bloque recibido")}
             if(pending==null && now-lastCatalog>20000) { lastCatalog=now; send(JSONObject().put("type","catalog")) }
             else send(JSONObject().put("type","ping"))

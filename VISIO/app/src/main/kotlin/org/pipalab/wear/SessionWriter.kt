@@ -46,7 +46,7 @@ class SessionWriter(context: Context, config: SessionConfig) {
         .put("android_release", Build.VERSION.RELEASE).put("api", Build.VERSION.SDK_INT)
         .put("build_display", Build.DISPLAY).put("app_version", BuildConfig.VERSION_NAME)
         .put("samsung_enabled", BuildConfig.SAMSUNG_ENABLED).put("start_elapsed_ns", startNs).put("start_wall_ms", startWall)
-        .put("sampling_period_us", 40000).put("sensor_profile","essential_v3_training").put("detector_version","disabled_training").put("timestamp_wall_policy", "IMU: wall at session anchor + elapsed delta; reloj.csv tracks wall changes")
+        .put("sampling_period_us", 40000).put("sensor_profile","multimodal_v4").put("detector_version","disabled_training").put("timestamp_wall_policy", "IMU: wall at session anchor + elapsed delta; reloj.csv tracks wall changes")
         .put("samsung_timestamp_policy", "source retained; epoch/elapsed inferred at reception; unknown uses receipt, never a guaranteed sample clock")
         .put("offbody_timestamp_policy", "cached pre-session state applies at receipt; source_elapsed_ns retains sensor timestamp; unknown until first event")
         .put("network_permission", false).put("sync_policy", "sensor elapsedRealtime and optional audio BOOTTIME anchors; manual markers retain origin and receipt times")
@@ -58,7 +58,7 @@ class SessionWriter(context: Context, config: SessionConfig) {
         check(dir.mkdirs()) { "No se pudo crear sesión" }
         meta.put("session", dir.name)
         capture?.let { meta.put("training", it.json()).put("audio", JSONObject().put("requested", it.audio).put("state", if(it.audio) "starting" else "off")) }
-        meta.put("schema_version",if(capture!=null)4 else if(compact)3 else 2).put("storage_policy",if(compact)"compact_v2" else "full_raw")
+        meta.put("schema_version",if(capture!=null)5 else if(compact)3 else 2).put("storage_policy",if(compact)"compact_v2" else "full_raw")
             .put("retention",JSONObject().put("summary_seconds",60).put("continuous_slow_streams",JSONArray(listOf("heart_rate","temperatura"))).put("memory_buffer_seconds",210).put("control_seconds",10)
                 .put("control_period_seconds",300).put("event_context_seconds",30).put("manual_seconds",30))
         meta.put("permissions_granted", JSONObject().also { grants ->
@@ -148,7 +148,7 @@ class SessionWriter(context: Context, config: SessionConfig) {
     }
     fun finish(endNs: Long, reason: String, flushComplete: Boolean) {
         if (closed) return
-        for (name in listOf("acelerometro")) {
+        for (name in listOf("acelerometro","giroscopio")) {
             val stat = stats[name]
             val first = stat?.first?.takeIf { it > 0 } ?: endNs
             val last = stat?.last?.takeIf { it > 0 } ?: startNs

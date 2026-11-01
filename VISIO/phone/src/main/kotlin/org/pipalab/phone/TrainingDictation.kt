@@ -10,7 +10,9 @@ import java.util.Locale
 data class DictationState(val available:Boolean=false,val listening:Boolean=false,val partial:String="",val message:String="Comprobando dictado local…",val language:String="es-MX")
 
 /** Phone-only on-device recognition. No cloud fallback; transcripts remain annotations awaiting review. */
-class TrainingDictation(private val context:Context,private val db:TrainingStore) : RecognitionListener {
+class TrainingDictation(private val context:Context,private val db:TrainingStore,
+    private val command:((org.pipalab.core.SessionVoice.Command,String)->Unit)?=null,
+    private val saveTranscript:()->Boolean={true}) : RecognitionListener {
     val state=MutableStateFlow(DictationState())
     private val handler=Handler(Looper.getMainLooper())
     private var recognizer:SpeechRecognizer?=null
@@ -21,6 +23,7 @@ class TrainingDictation(private val context:Context,private val db:TrainingStore
     private var ended=0L
     private var delta=0L
     private var partial=""
+    private var enabledAt=0L
     init {
         if(SpeechRecognizer.isOnDeviceRecognitionAvailable(context)) {
             runCatching { recognizer=SpeechRecognizer.createOnDeviceSpeechRecognizer(context).also{it.setRecognitionListener(this)} }
@@ -50,10 +53,13 @@ class TrainingDictation(private val context:Context,private val db:TrainingStore
     }
     fun start(id:String) {
         if(!state.value.available || busy) return
-        capture=id;enabled=true;listen()
+        capture=id;enabled=true;enabledAt=SystemClock.elapsedRealtime();listen()
     }
     private fun listen() {
         if(!enabled || busy) return
+        if(SystemClock.elapsedRealtime()-enabledAt>15*60*1000L) {
+            enabled=false;state.value=state.value.copy(listening=false,message="Escucha apagada tras 15 minutos. Puedes volver a activarla.");return
+        }
         started=System.currentTimeMillis();ended=0;delta=PhoneLive.state.value.clockDelta;partial="";busy=true
         state.value=state.value.copy(listening=true,partial="",message="Escuchando en el teléfono · describe tu actividad")
         runCatching { recognizer?.startListening(request()) }.onFailure{busy=false;enabled=false;state.value=state.value.copy(listening=false,message="No se pudo dictar: "+it.message)}
@@ -61,7 +67,7 @@ class TrainingDictation(private val context:Context,private val db:TrainingStore
     fun stop() { val wasActive=enabled || busy;enabled=false;handler.removeCallbacksAndMessages(null);if(busy)recognizer?.stopListening();if(wasActive)state.value=state.value.copy(listening=false,message="Finalizando descripción…") }
     fun destroy() {
         enabled=false;handler.removeCallbacksAndMessages(null)
-        if(partial.isNotBlank() && capture.isNotBlank()) db.transcript(capture,started,if(ended>0)ended else System.currentTimeMillis(),delta,partial,true)
+        if(partial.isNotBlank() && capture.isNotBlank() && saveTranscript()) db.transcript(capture,started,if(ended>0)ended else System.currentTimeMillis(),delta,partial,true)
         partial="";recognizer?.cancel();recognizer?.destroy();recognizer=null;busy=false
     }
     override fun onReadyForSpeech(params:Bundle?) {}
@@ -71,7 +77,7 @@ class TrainingDictation(private val context:Context,private val db:TrainingStore
     override fun onEndOfSpeech() { ended=System.currentTimeMillis();state.value=state.value.copy(message="Transcribiendo localmente…") }
     override fun onError(error:Int) {
         busy=false
-        if(partial.isNotBlank()) db.transcript(capture,started,if(ended>0)ended else System.currentTimeMillis(),delta,partial,true)
+        if(partial.isNotBlank() && saveTranscript()) db.transcript(capture,started,if(ended>0)ended else System.currentTimeMillis(),delta,partial,true)
         partial=""
         val retry=error in setOf(SpeechRecognizer.ERROR_NO_MATCH,SpeechRecognizer.ERROR_SPEECH_TIMEOUT)
         if(!retry) enabled=false
@@ -87,7 +93,9 @@ class TrainingDictation(private val context:Context,private val db:TrainingStore
     override fun onResults(results:Bundle?) {
         busy=false
         val text=results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull().orEmpty()
-        if(text.isNotBlank())db.transcript(capture,started,if(ended>0)ended else System.currentTimeMillis(),delta,text,false)
+        val control=org.pipalab.core.SessionVoice.command(text)
+        if(command!=null && control!=null && enabled) command.invoke(control,text)
+        else if(text.isNotBlank() && saveTranscript())db.transcript(capture,started,if(ended>0)ended else System.currentTimeMillis(),delta,text,false)
         partial="";state.value=state.value.copy(listening=enabled,partial="",message=if(text.isBlank())"Sin texto reconocido" else "Frase guardada; revísala al finalizar.")
         if(enabled)handler.postDelayed({listen()},350)
     }

@@ -1,8 +1,8 @@
-# APK de Visio
+# APK de Visio · listas para instalar
 
-- Visio-Mobile-debug.apk: teléfono 0.7.0-training.
-- Visio-Wear-debug.apk: reloj 0.5.0-training.
+- Visio-Mobile-debug.apk: teléfono 0.8.0-sessions.
+- Visio-Wear-debug.apk: reloj 0.6.0-capture con SDK Samsung.
 
-Son las APK verificadas contra las instalaciones actuales; misma identidad y firma de depuración para conservar datos. Instalar con `adb -s SERIAL install -r ARCHIVO.apk`. No desinstalar ni borrar datos para actualizar. El SDK Samsung requiere su servicio y configuración correspondientes.
+Instala con `adb -s SERIAL install -r ARCHIVO.apk`. Conserva la misma firma/identidad; no desinstales ni borres datos. Estas versiones se compilaron sin dispositivos conectados: no se afirma instalación ni validación física.
 
-Guía de uso en [ENTRENAMIENTO.md](../ENTRENAMIENTO.md). La validación física nueva de audio, dictado y LED sigue pendiente. Hashes y versiones en [ENTREGA.json](../ENTREGA.json).
+[Guía de sesiones y comandos](../CAPTURA-SESIONES.md) · [Versiones y SHA-256](../ENTREGA.json).

@@ -97,6 +97,10 @@ class MainActivity:ComponentActivity() {
     }
     override fun onCreate(savedInstanceState:Bundle?) {
         super.onCreate(savedInstanceState);enableEdgeToEdge();store=Store.get(this)
+        val interrupted=SessionMedia(store).recover()
+        if(interrupted.isNotEmpty())getSharedPreferences("capture_stop",0).let {p->
+            p.edit().putStringSet("ids",p.getStringSet("ids",emptySet()).orEmpty()+interrupted).commit()
+        }
         getSharedPreferences("prefs",MODE_PRIVATE).edit().putBoolean("detection",false).putBoolean("esp_automatic",false).putBoolean("audio_demo",false).apply()
         getSystemService(NotificationManager::class.java).activeNotifications.filter{it.notification.channelId=="candidates"}.forEach{getSystemService(NotificationManager::class.java).cancel(it.id)}
         dictation=TrainingDictation(this,TrainingStore(store))

@@ -1,42 +1,46 @@
 # Visio · ecosistema Nemy
 
-Apps Android/Wear OS para crear una base de actividades con señales reales, audio opcional, descripciones por dictado local y revisión humana. Teléfono **0.7.0-training**, reloj **0.5.0-training**.
+Apps Android/Wear OS para registrar ejemplos de actividades, revisarlos y exportarlos como datos de entrenamiento. Teléfono **0.8.0-sessions**, reloj **0.6.0-capture**.
 
-**Aprender** ajusta modelos personales con movimiento, pulso y temperatura, compara versiones con sesiones reservadas y conserva la posibilidad de volver atrás. No aprende de sus propias predicciones. Las sugerencias requieren evidencia suficiente y se abstienen ante señales ambiguas. La demo acústica → LED responde a impulsos breves; todavía no es un reconocedor entrenado de encendedores o chasquidos.
+**Crear nueva sesión → acción → corte → revisar.** El teléfono controla video frontal ~480p, audio del reloj, pulso, temperatura, giroscopio y acelerómetro. Incluye dictado local, gráficos explorables, reproducción aproximada conjunta, calidad de señales y ZIP por sesión. El reloj solo captura, conserva originales y los envía.
 
 ## Empezar
 
-Lee [ENTRENAMIENTO.md](ENTRENAMIENTO.md). Abre Visio en el reloj y enlaza el teléfono. En Capturar elige tipo, descripción, duración y audio; confirma el inicio en el reloj. Al terminar, revisa la sesión y acepta, corrige o excluye el ejemplo. Reserva algunas sesiones para evaluación antes de iniciarlas.
+Instala las APK de apps/ sin desinstalar ni borrar datos. En el reloj concede permisos y activa **Listo para el teléfono** una vez. En el teléfono conecta, elige actividad/duración y crea la sesión. Di **acción** para empezar y **corte** para guardar, o usa los botones. El control de voz requiere un modelo español local disponible. Guía completa: [CAPTURA-SESIONES.md](CAPTURA-SESIONES.md).
 
 | Carpeta | Contenido |
 | --- | --- |
-| phone/ | App del teléfono, revisión y aprendizaje local |
-| app/ | Captura del reloj, audio y enlace cifrado |
-| core/ | Protocolos, señales, WAV y detector de impulsos de demostración |
-| apps/ | APK instaladas, con hashes en ENTREGA.json |
+| phone/ | Control de sesiones, cámara, voz, revisión y aprendizaje local |
+| app/ | Captura del reloj, audio y enlace Bluetooth cifrado |
+| core/ | Protocolos, reloj, comandos, señales y reglas compartidas |
+| apps/ | APK listas para instalar; hashes en ENTREGA.json |
 | tools/ | Capturador Zoom para Windows y pruebas |
 | esp32s3-led/ | Firmware ESP-IDF del LED |
-| firmware/VisioLED-XIAO/ | Binarios XIAO ESP32-S3 |
+| firmware/VisioLED-XIAO/ | Binarios XIAO ESP32-S3 existentes |
 
-El historial previo se conserva; las guías APP-TELEFONO.md y DETECTOR-Y-CAPTURA.md documentan versiones anteriores. La interfaz vigente es la de entrenamiento.
+## Aprendizaje y privacidad
+
+Aprender conserva los modelos personales por versiones, revisión humana, evaluación reservada y posibilidad de volver atrás. Su modelo actual usa acelerómetro, pulso y temperatura: todavía no aprende con video, giroscopio o audio. La demo de impulsos → LED no es un clasificador entrenado de encendedores/chasquidos. Ver [ENTRENAMIENTO.md](ENTRENAMIENTO.md).
+
+El historial se conserva. Los archivos personales, grabaciones, bases, modelos y claves se excluyen de Git. Los ZIP de sesiones se exportan localmente desde el teléfono. El SDK Samsung AAR no se redistribuye como fuente. Las guías APP-TELEFONO.md y DETECTOR-Y-CAPTURA.md describen versiones anteriores.
 
 ## Compilar
 
-Android Studio/JDK 21, SDK Platform 37 y Build-Tools 36. En PowerShell:
+Android Studio/JDK 21, SDK Platform 37, Build-Tools 36. En PowerShell:
 
 ```powershell
 . .\scripts\entorno.ps1
-.\gradlew.bat :core:testDebugUnitTest :phone:testDebugUnitTest :phone:assembleDebug :app:assembleDebug
+.\gradlew.bat :core:testDebugUnitTest :phone:testDebugUnitTest :app:testDebugUnitTest :phone:assembleDebug :app:assembleDebug
 ```
 
-El Samsung Health Sensor SDK no se redistribuye. Descárgalo desde el [portal oficial](https://developer.samsung.com/health/sensor/overview.html), acepta sus condiciones y coloca un único AAR en app/libs. Ver SDK-PROVENIENCIA.txt. `-PmotionOnly=true` permite compilar sin sensores Samsung.
+Descarga el SDK desde el [portal oficial Samsung](https://developer.samsung.com/health/sensor/overview.html), acepta sus condiciones y coloca un único AAR en app/libs. `-PmotionOnly=true` compila una variante sin sensores Samsung. La compilación descarga dependencias; las APK no tienen permiso de Internet.
 
-Para la Zoom: ejecuta tools/ABRIR-CAPTURA.cmd con Python 3.11+ con Tcl/Tk y FFmpeg. Los WAV y etiquetas permanecen en Descargas/Visio-Captura-Zoom/capturas. El índice se regenera con tools/index_zoom_dataset.py. No se graba hasta pulsar Grabar.
+Para referencias Zoom, tools/ABRIR-CAPTURA.cmd requiere Python con Tcl/Tk y FFmpeg. No empieza a grabar hasta pulsar Grabar. Sus archivos personales permanecen fuera del repositorio.
 
-## Entrega y límites
+## Entrega
 
-Esta carpeta contiene código, APK y firmware; excluye mediciones, audio personal, modelos privados, respaldos y claves. Los modelos se crean dentro del teléfono y solo salen mediante exportación local del usuario. No se asignó una licencia de código abierto al proyecto. [Estado verificable](ESTADO.md).
+Compiladas y probadas en PC. **Esta versión no está instalada ni probada físicamente:** no había dispositivos conectados. [Estado y límites](ESTADO.md), [resultados de software](verificacion/SESIONES-0.8.json). La sincronización entre cámaras, audio y sensores es aproximada, con sus referencias originales exportadas.
 
-El proyecto se integra en [Dowsher/Nemy.com.mx](https://github.com/Dowsher/Nemy.com.mx) bajo VISIO/. La evaluación reservada no demuestra generalización a personas o ambientes nuevos. El reconocimiento aprendido de sonidos sigue pendiente; los WAV son material de entrenamiento. La cadena física nueva reloj/audio/dictado/LED requiere pruebas del usuario.
+Repositorio: [Dowsher/Nemy.com.mx](https://github.com/Dowsher/Nemy.com.mx), carpeta VISIO/. No se asignó una licencia de código abierto al proyecto.
 
 [Descargar código completo](Visio-fuente-completa.zip) · [APK instalables](apps/)

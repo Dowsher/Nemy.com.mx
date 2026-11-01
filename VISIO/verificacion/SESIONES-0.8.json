@@ -1,0 +1,27 @@
+{
+  "date": "2026-11-01",
+  "android_tests": 47,
+  "tests_by_module": {
+    "core": 31,
+    "phone": 11,
+    "app": 5,
+    "zoom": 2
+  },
+  "build": "phone and Samsung-enabled watch debug APK success",
+  "lint": "0 errors; existing and advisory warnings remain; Lifecycle custom checks skipped due incompatible lint API",
+  "physical_devices_connected": false,
+  "installed_this_release": false,
+  "physical_voice_camera_audio_sensor_sync": "not tested",
+  "tested_behaviors": [
+    "whole-phrase commands and duplicate suppression",
+    "cut during startup",
+    "clock RTT and stale probes",
+    "persistent cancellation and duplicate watch ids",
+    "single-session ZIP isolation",
+    "path confinement",
+    "refuse export during recording",
+    "preserve interrupted video"
+  ],
+  "phone_apk_sha256": "deb15946603b5e6d5959961852f93c32d3a73009f12d2033b335ee31a9a9552b",
+  "watch_apk_sha256": "1deb928323a0a666e4f999e862116cfc669e6cecc1c87278c28763568661a01f"
+}

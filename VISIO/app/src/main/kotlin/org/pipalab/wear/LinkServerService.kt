@@ -80,7 +80,7 @@ class LinkServerService:Service() {
         endpoint?.send(JSONObject().put("type","status").put("recording",live.active).put("session",live.session)
             .put("wall",System.currentTimeMillis()).put("battery",live.battery).put("health",live.health)
             .put("elapsed",SystemClock.elapsedRealtimeNanos())
-            .put("sensor_profile","essential_v3_training").put("motion_hz",25).put("protocol",3).put("compact",live.captureId.isBlank() && getSharedPreferences("setup",MODE_PRIVATE).getBoolean("compact",true))
+            .put("sensor_profile","multimodal_v4").put("motion_hz",25).put("protocol",4).put("remote_ready",RemoteReady.state.value).put("compact",live.captureId.isBlank() && getSharedPreferences("setup",MODE_PRIVATE).getBoolean("compact",true))
             .put("training_id",live.captureId).put("activity",live.activity).put("seconds",live.seconds).put("duration_seconds",live.durationSeconds)
             .put("pending_training_id",TrainingInbox.pending.value?.id.orEmpty()).put("audio_state",live.audio.state)
             .put("audio_seconds",live.audio.seconds).put("audio_peak",live.audio.peak).put("audio_silenced",live.audio.silenced)
@@ -96,6 +96,33 @@ class LinkServerService:Service() {
     private fun request(text:String) {
         val j=JSONObject(text)
         when(j.getString("type")) {
+            "clock_ping" -> {
+                val received=SystemClock.elapsedRealtimeNanos()
+                endpoint?.send(JSONObject().put("type","clock_pong").put("p1",j.getLong("p1"))
+                    .put("w2",received).put("w3",SystemClock.elapsedRealtimeNanos()).toString())
+            }
+            "training_start" -> {
+                val capture=ActivityCapture.parse(j.getJSONObject("capture"))
+                val expires=j.optLong("expires_watch_ns")
+                val now=SystemClock.elapsedRealtimeNanos()
+                val state=when {
+                    !RemoteReady.state.value -> "not_ready"
+                    expires !in now..(now+15_000_000_000L) -> "expired"
+                    Live.state.value.active && Live.state.value.captureId==capture.id -> "already_started"
+                    !capture.audio -> "unsupported"
+                    else -> TrainingInbox.prepare(this,capture)
+                }
+                if(state=="prepared") {
+                    val prefs=getSharedPreferences("setup",MODE_PRIVATE)
+                    startService(Intent(this,RecorderService::class.java).setAction("START").putExtra("remote",true)
+                        .putExtra("training_id",capture.id).putExtra("expires",expires)
+                        .putExtra("capture",capture.json().toString()).putExtra("consent",true)
+                        .putExtra("participant",prefs.getString("participant","P001")).putExtra("wrist",prefs.getString("wrist","izq"))
+                        .putExtra("dominant",prefs.getString("dominant","der")).putExtra("power","auto"))
+                }
+                endpoint?.send(JSONObject().put("type","training_ack").put("id",capture.id).put("state",state).toString())
+                heartbeat()
+            }
             "training_prepare" -> {
                 val capture = ActivityCapture.parse(j.getJSONObject("capture"))
                 val state = TrainingInbox.prepare(this, capture)
@@ -108,8 +135,11 @@ class LinkServerService:Service() {
                     .put("state", if(TrainingInbox.cancel(this,id)) "cancelled" else "not_pending").toString())
                 heartbeat()
             }
-            "training_stop" -> if(Live.state.value.active && Live.state.value.captureId == j.getString("id")) {
+            "training_stop" -> {
+                TrainingInbox.block(this,j.getString("id"))
+                if(Live.state.value.active && Live.state.value.captureId == j.getString("id"))
                 startService(Intent(this, RecorderService::class.java).setAction("STOP").putExtra("training_id", j.getString("id")))
+                endpoint?.send(JSONObject().put("type","stop_ack").put("id",j.getString("id")).toString())
             }
             "training_point" -> if(Live.state.value.active && Live.state.value.captureId == j.getString("training_id")) {
                 require(j.getString("id").matches(Regex("[A-Za-z0-9_-]{1,80}")))

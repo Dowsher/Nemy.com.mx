@@ -1,9 +1,9 @@
-# Entrega 0.7 de Visio
+# Entrega Visio 0.8 · 1 de noviembre de 2026
 
-Teléfono 0.7.0-training y reloj 0.5.0-training instalados; APK cotejadas por SHA-256. Firmware LED existente sin cambios. Historial y claves preservados. Migración de SQLite 4 a 5 e integridad comprobadas; las etiquetas y revisiones anteriores coinciden con el respaldo.
+Teléfono 0.8.0-sessions y reloj 0.6.0-capture compilados. 47 pruebas Android y 2 de Zoom aprobadas. Lint: cero errores, con advertencias e incompatibilidad de comprobaciones Lifecycle de la dependencia. Los resultados están en [verificacion/SESIONES-0.8.json](verificacion/SESIONES-0.8.json).
 
-Captura por sesiones, tipos editables, audio opcional, dictado local, revisión/exportación y modelos locales por versiones implementados. El teléfono reportó un modelo español local instalado. Se revisaron visualmente las pantallas móviles y el capturador Zoom; la Zoom produjo WAV reales etiquetados por el usuario, conservados fuera de esta carpeta.
+Control por acción/corte, cámara frontal, cuatro señales del reloj, WAV, revisión, reproducción aproximada, ZIP individual y protección frente a órdenes tardías/repetidas implementados. Historial y claves preservados por actualizaciones aditivas; no se cambia SQLite 5.
 
-26 pruebas core, 7 del teléfono, 2 del reloj y 2 de Zoom aprobadas. Compilación y Lint sin errores; permanecen advertencias de compatibilidad Lifecycle y otras recomendaciones. Un build no demuestra precisión de detección.
+**No instalado ni probado físicamente en esta entrega.** No había dispositivos conectados. Pendiente del usuario: permisos y modo listo del reloj, inicio/cierre por voz, cámara frontal real, calidad de pulso/temperatura/IMU/audio y sincronización. No se afirma precisión de detección ni alineación exacta por frame.
 
-Pendiente: prueba completa nueva con audio del reloj, dictado hablado y respuesta del LED. El reloj perdió ADB tras instalar; no se afirma haber verificado esa cadena. No hay modelo personal validado hasta reunir suficientes sesiones revisadas de entrenamiento y evaluación. Las tomas Zoom no son todavía un clasificador validado en el micrófono del reloj.
+El modelo local existente todavía usa acelerómetro, pulso y temperatura. El audio, giroscopio y video quedan como datos para entrenamiento multimodal posterior. La placa y el firmware LED no se modificaron.

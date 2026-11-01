@@ -1,15 +1,12 @@
 # Visio · sesiones de actividades y audio
 
-Versión de teléfono 0.7.0-training; reloj 0.5.0-training. Herramienta del ecosistema Nemy.
+Versión de teléfono 0.8.0-sessions; reloj 0.6.0-capture. Herramienta del ecosistema Nemy.
 
 ## Registrar una actividad
 
-1. Abre Visio en el reloj y toca **Enlazar teléfono**. En el teléfono, **Capturar → Conectar reloj**.
-2. Elige un tipo de actividad o crea uno. Describe postura, mano, objetos, distancia y ambiente. Elige de 30 segundos a 10 minutos y si quieres audio del reloj.
-3. Pulsa **Preparar sesión en el reloj**. En el reloj revisa la preparación, concede los permisos solicitados, acepta esa captura y pulsa **INICIAR**. Una solicitud del teléfono prepara el registro: el micrófono se inicia desde la pantalla visible del reloj.
-4. En el teléfono, **Dictar descripción** inicia reconocimiento de voz local mientras el reloj registra sensores y, si lo elegiste, sonido. Puedes detener el dictado sin detener la sesión. Deja Visio visible para seguir dictando. La pantalla muestra errores y disponibilidad real del modelo; no hay sustitución por un servicio remoto.
-5. Usa las marcas **Encendedor**, **Gesto**, **Otro sonido** o **Sincronización** como anotaciones humanas. La recepción en el reloj incluye demora Bluetooth, registrada explícitamente.
-6. Detén y guarda, o espera el límite. Mantén ambos dispositivos cerca hasta **Archivos recibidos y verificados**. En **Sesiones**, revisa la descripción, escucha el audio, consulta señales y decide si es un ejemplo válido o debe excluirse. La agrupación sigue el tipo revisado de actividad.
+El flujo vigente se explica en [CAPTURA-SESIONES.md](CAPTURA-SESIONES.md): activa **Listo para el teléfono** una vez en el reloj; en el teléfono crea una sesión, encuadra la cámara frontal y di **acción** para empezar y **corte** para cerrar. También hay botones. Cada sesión nueva solicita video frontal ~480p, audio del reloj, pulso, temperatura, giroscopio y acelerómetro. No hay confirmación por sesión en el reloj.
+
+En **Sesiones** puedes reproducir, recorrer el video, escuchar el audio, consultar señales y mediciones, revisar la descripción y exportar un ZIP por ejemplo. El dictado local puede describir la actividad durante la captura. La disponibilidad real del modelo español se muestra en pantalla. Los resultados de voz son anotaciones revisables; no se usan automáticamente como etiquetas.
 
 Las pruebas de instalación o demostración deben llevar **Solo prueba técnica**. No pueden aceptarse como ejemplos de actividad. Los históricos previos se conservan separados; sus antiguas marcas no se convierten automáticamente en etiquetas de la nueva base.
 
@@ -18,12 +15,16 @@ Las pruebas de instalación o demostración deben llevar **Solo prueba técnica*
 - **Movimiento:** acelerómetro a 25 Hz, tres ejes en m/s², tiempo monotónico de la muestra y recepción. Registra movimientos del brazo y cambios de orientación; no demuestra por sí solo una actividad.
 - **Pulso e IBI:** lecturas disponibles del Samsung Health Sensor SDK y su calidad. IBI acompaña al pulso; no se registra PPG crudo. El contacto y el movimiento pueden invalidar lecturas.
 - **Temperatura de piel y ambiente:** lecturas disponibles del SDK con su estado. La temperatura de piel no es temperatura corporal central. Ausencia o estado inválido no se sustituye por un valor inventado.
-- **Audio opcional:** WAV PCM de 16 bits, mono, 16 kHz, aproximadamente 1.92 MB/min. Se solicita entrada sin procesamiento cuando el dispositivo lo soporta; en otro caso VOICE_RECOGNITION. `audio.json` declara la fuente, ruta, resultado, duración y calidad. No hay escucha permanente.
+- **Giro:** giroscopio a 25 Hz solicitado, tres ejes en rad/s; complementa la aceleración para estudiar gestos de muñeca.
+- **Video frontal:** SD (~480p) con resolución real registrada, original MP4 en el teléfono.
+- **Audio del reloj (solicitado en cada sesión nueva):** WAV PCM de 16 bits, mono, 16 kHz, aproximadamente 1.92 MB/min. Se solicita entrada sin procesamiento cuando el dispositivo lo soporta; en otro caso VOICE_RECOGNITION. `audio.json` declara la fuente, ruta, resultado, duración y calidad. No hay escucha permanente.
 - **Metadatos auxiliares:** batería, contacto del reloj, huecos, estados, sincronización y resúmenes por minuto. Sirven para evaluar calidad; no son sensores adicionales para clasificar.
 
 Se guardan todas las muestras recibidas durante sesiones deliberadas y acotadas, además de promedios. Fuera de una sesión no se inicia la adquisición de movimiento, salud o audio. El servicio de enlace puede continuar para copiar archivos.
 
 ## Cómo se relacionan los tiempos
+
+La versión 0.8 añade sondas de ida y vuelta entre dispositivos y referencias del video. Consulta sus fórmulas, incertidumbre y estructura en [CAPTURA-SESIONES.md](CAPTURA-SESIONES.md).
 
 Los sensores conservan su tiempo monotónico; `meta.json` y `reloj.csv` relacionan ese reloj con la hora civil. Samsung conserva también los tiempos de origen y declara la inferencia usada. El WAV conserva cada muestra de sonido. `audio_timeline.csv` guarda una referencia aproximada cada segundo: posición de frame, tiempo BOOTTIME del hardware, recepción y origen de la estimación. Si Android no entrega ancla de hardware, la fila se marca `reception_estimate`.
 
@@ -31,7 +32,7 @@ Los dictados se guardan por frases: inicio/fin en el teléfono, estimación del 
 
 ## Demostración de chasquido → LED
 
-Conecta la placa en **Ajustes → Buscar ESP32/Reconectar**, inicia una sesión con audio y activa **Demo sonora**. Tras un segundo de sonido ambiente, un impulso breve cerca del reloj puede solicitar un pulso del LED. La duración se elige entre 1, 3 y 5 segundos.
+Conecta la placa en **Ajustes → Buscar ESP32/Reconectar** antes de abrir la cámara. Durante la sesión activa **Demo sonido → LED** en la pantalla de captura. Tras un segundo de sonido ambiente, un impulso breve cerca del reloj puede solicitar un pulso del LED. La duración se elige entre 1, 3 y 5 segundos.
 
 La regla usa energía y pico en ventanas de 10 ms, umbral sobre el fondo, duración breve y una pausa de dos segundos entre eventos. **No es un modelo entrenado de chasquidos o encendedores:** puede reaccionar a palmadas, golpes u otros impulsos. Los candidatos acústicos y órdenes/acuses del LED quedan auditados, sin convertirse en etiquetas confirmadas de actividad. La demo se desactiva al terminar o perder el enlace. La detección automática anterior de actividades está desactivada.
 
@@ -49,12 +50,13 @@ Revisa escuchando el archivo desde **Abrir archivos**, y luego acepta o excluye 
 
 **Exportar base de entrenamiento** produce un ZIP local:
 
+- `telefono/<training_id>/`: MP4 original y capture.json; `telefono-manifiesto.json` relaciona ids y hashes.
 - `dataset.json`: categorías, sesiones, especificación original, revisiones, dictados y solicitudes de marcas.
-- `sesiones/<id>/`: archivos originales con hashes verificados, sensores CSV, marcadores, metadatos y audio opcional.
+- `sesiones/<id>/`: archivos originales con hashes verificados, sensores CSV, marcadores, metadatos y audio del reloj.
 - `transferencia.json`: lista de archivos incluidos y estado de la copia. Si la copia sigue pendiente, espera antes de usar esa sesión.
 - `actuaciones_led.csv`: solicitudes y resultados de la placa; un acuse no prueba que alguien vio la luz.
 
-La base SQLite migra de esquema 4 a 5 mediante tablas nuevas; no borra muestras, eventos ni revisiones anteriores. Los originales se mantienen; corregir una descripción crea una entrada de revisión. La muerte del proceso del reloj recupera WAV de sesiones nuevas cuando es posible y marca la sesión **interrumpida**, nunca como finalizada limpiamente.
+La versión 0.8 conserva SQLite 5 y añade archivos de cámara sin cambiar el esquema. La migración histórica de esquema 4 a 5 fue mediante tablas nuevas; no borra muestras, eventos ni revisiones anteriores. Los originales se mantienen; corregir una descripción crea una entrada de revisión. La muerte del proceso del reloj recupera WAV de sesiones nuevas cuando es posible y marca la sesión **interrumpida**, nunca como finalizada limpiamente.
 
 Para entrenar: aceptar solo sesiones revisadas, excluir `technical_test=1`, comprobar calidad/contacto y archivos completos, recortar usando audio y marcas revisadas, y recoger también muchos ejemplos negativos parecidos. Separar entrenamiento y validación por sesiones/días/personas; nunca repartir ventanas vecinas de una misma grabación entre ambos. Medir precisión, sensibilidad y falsas alarmas por hora en sesiones nuevas antes de activar una clasificación automática. Unas pocas grabaciones sirven para arrancar el conjunto, no para demostrar certeza.
 
@@ -72,7 +74,7 @@ Cada cambio de ejemplos o etiquetas genera una versión identificada por hash. U
 
 Durante una sesión, el modelo habilitado compara los últimos 30 segundos recibidos y muestra una sugerencia experimental. No confirma actividades, no genera nuevas etiquetas y no activa el LED. Para corregirlo, revisa la sesión y cambia su tipo por el correcto; el siguiente ajuste usa esa corrección humana. Los modelos se guardan en almacenamiento privado y se incluyen como `aprendizaje.json` al exportar la base.
 
-Esta primera iteración aprende actividades con **movimiento, pulso y temperatura**. El reconocimiento aprendido de encendedores/chasquidos por audio queda separado: los WAV de Zoom y reloj forman el material para ese desarrollo. La demo de impulsos → LED sigue usando su regla acústica declarada.
+Esta primera iteración aprende actividades con **movimiento, pulso y temperatura**. El modelo vigente aún no usa video ni giroscopio. El reconocimiento aprendido de encendedores/chasquidos por audio queda separado: los WAV de Zoom y reloj forman el material para ese desarrollo. La demo de impulsos → LED sigue usando su regla acústica declarada.
 
 El criterio de separar experimentos completos sigue la documentación de [validación con grupos](https://scikit-learn.org/stable/modules/cross_validation.html#cross-validation-iterators-for-grouped-data). No se utiliza scikit-learn dentro de la APK: el cálculo es Kotlin local, sin servidor ni claves de API.
 

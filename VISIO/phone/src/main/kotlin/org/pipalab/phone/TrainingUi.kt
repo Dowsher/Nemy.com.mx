@@ -24,7 +24,7 @@ import org.pipalab.core.ActivityTypes
 import org.pipalab.core.TimeWindow
 import java.io.File
 
-private fun captureStatus(status:String)=mapOf("requested" to "Enviando preparación","prepared" to "Lista: inicia en el reloj","recording" to "Registrando","finishing" to "Cerrando archivos","closed" to "Finalizada","interrupted" to "Interrumpida: revisar",
+internal fun captureStatus(status:String)=mapOf("draft" to "Lista para abrir cámara", "not_ready" to "Capturador del reloj apagado", "expired" to "Inicio caducado", "requested" to "Preparando","prepared" to "Lista: inicia en el reloj","recording" to "Registrando","finishing" to "Cerrando archivos","closed" to "Finalizada","interrupted" to "Interrumpida: revisar",
     "cancelled" to "Preparación cancelada","unconfirmed" to "Preparación sin confirmar","unsupported" to "Actualiza Visio en el reloj","busy" to "El reloj ya registra otra sesión","pending_other" to "Hay otra preparación en el reloj","already_started" to "Ya se inició; espera sincronización","not_pending" to "No hay preparación pendiente").getOrDefault(status,status)
 private fun reviewText(status:String)=mapOf("accepted" to "Revisada","excluded" to "Excluir del entrenamiento","unreviewed" to "Pendiente de revisión").getOrDefault(status,status)
 private data class TrainingSnapshot(val records:List<TrainingRecord> = emptyList(),val types:List<TrainingType> = emptyList(),val sessions:List<SessionInfo> = emptyList(),val transcripts:List<Transcript> = emptyList())
@@ -41,10 +41,13 @@ private data class TrainingSnapshot(val records:List<TrainingRecord> = emptyList
     val voice by dictation.state.collectAsState()
     var tab by rememberSaveable {mutableIntStateOf(0)}
     var selected by rememberSaveable {mutableStateOf("")}
+    val captureLauncher=androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()) {result->
+        result.data?.getStringExtra("id")?.let {selected=it;tab=1}
+    }
     var signalSession by rememberSaveable {mutableStateOf("")}
     var type by rememberSaveable {mutableStateOf("rest")}
     var description by rememberSaveable {mutableStateOf("")}
-    var withAudio by rememberSaveable {mutableStateOf(false)}
+    val withAudio=true
     var technicalTest by rememberSaveable {mutableStateOf(false)}
     var evaluationOnly by rememberSaveable {mutableStateOf(false)}
     var seconds by rememberSaveable {mutableIntStateOf(60)}
@@ -66,14 +69,14 @@ private data class TrainingSnapshot(val records:List<TrainingRecord> = emptyList
     }
     fun work(block:()->Unit) {scope.launch {runCatching{withContext(Dispatchers.IO){block()}}.onFailure{notify(it.message ?: "No se pudo guardar")}}}
     val current=snapshot.records.firstOrNull{it.id==link.trainingId && link.recording}
-    val pending=snapshot.records.firstOrNull{it.status in setOf("requested","prepared","unconfirmed","busy","pending_other","unsupported","already_started") && it.session.isBlank()}
+    val pending=snapshot.records.firstOrNull{it.status in setOf("draft") && it.session.isBlank()}
     val detail=snapshot.records.firstOrNull{it.id==selected}
     val fresh=link.connected && link.recording && System.currentTimeMillis()-link.lastData<10000
     Scaffold(containerColor=Ink,bottomBar={NavigationBar(containerColor=Ink) {
         listOf("Capturar","Sesiones","Señales","Aprender","Ajustes").forEachIndexed { i,label -> NavigationBarItem(selected=tab==i,onClick={tab=i},icon={Text(listOf("●","▤","⌁","◇","⚙")[i],color=if(tab==i)Lime else Muted,fontSize=22.sp)},label={Text(label,fontSize=10.sp)},colors=NavigationBarItemDefaults.colors(indicatorColor=Color(0xFF243720))) }
     }}) { inset ->
         LazyColumn(Modifier.fillMaxSize().padding(inset),contentPadding=PaddingValues(20.dp),verticalArrangement=Arrangement.spacedBy(16.dp)) {
-            item {Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Text("Visio",fontSize=30.sp,fontWeight=FontWeight.SemiBold);Spacer(Modifier.weight(1f));Column(horizontalAlignment=Alignment.End){Text("NEMY",color=Lime,fontFamily=Mono,letterSpacing=2.sp);Text("TRAINING / 0.7",color=Muted,fontFamily=Mono,fontSize=9.sp)}}}
+            item {Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Text("Visio",fontSize=30.sp,fontWeight=FontWeight.SemiBold);Spacer(Modifier.weight(1f));Column(horizontalAlignment=Alignment.End){Text("NEMY",color=Lime,fontFamily=Mono,letterSpacing=2.sp);Text("SESSIONS / 0.8",color=Muted,fontFamily=Mono,fontSize=9.sp)}}}
             if(notice.isNotBlank())item {Text(notice,color=Amber,fontSize=12.sp,modifier=Modifier.fillMaxWidth().clickable{notify("")}.padding(8.dp))}
             when(tab) {
                 0 -> {
@@ -82,7 +85,9 @@ private data class TrainingSnapshot(val records:List<TrainingRecord> = emptyList
                         Eyebrow(if(fresh) "SEÑALES RECIBIDAS" else if(link.connected) "RELOJ CONECTADO" else "CONECTA TU RELOJ")
                         Text(link.text,fontSize=13.sp,color=if(link.connected)Mint else Muted)
                         if(!link.connected)Button(onClick=connect){Text("Conectar reloj")}
-                        else if(link.protocol<3)Text("Instala la versión de entrenamiento en el reloj para preparar sesiones y audio.",color=Amber,fontSize=12.sp)
+                        else if(link.protocol<4)Text("Instala Visio Wear 0.6 o posterior y activa Listo para el teléfono.",color=Amber,fontSize=12.sp)
+                        else if(!link.remoteReady)Text("En el reloj, abre Visio y activa «Listo para el teléfono».",color=Amber,fontSize=12.sp)
+                        if(link.pendingTrainingId.isNotBlank() && !link.recording) TextButton(onClick={command("TRAINING_CANCEL",link.pendingTrainingId)}){Text("Cancelar preparación anterior del reloj")}
                         if(link.sync.isNotBlank())Text(link.sync,fontSize=11.sp,color=Muted)
                     }}
                     if(link.recording) {
@@ -110,10 +115,10 @@ private data class TrainingSnapshot(val records:List<TrainingRecord> = emptyList
                         if(pending!=null)item {SurfaceCard {
                             Eyebrow("PREPARACIÓN")
                             Text(pending.activity,fontSize=21.sp);Text(captureStatus(pending.status),color=Amber,fontSize=13.sp)
-                            Text("Abre Visio en el reloj, revisa el audio y toca INICIAR. El teléfono no enciende el micrófono a distancia.",fontSize=12.sp,color=Muted)
+                            Text("Abre la cámara frontal del teléfono. Di acción para iniciar y corte para guardar.",fontSize=12.sp,color=Muted)
                             Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                                OutlinedButton(enabled=link.connected,onClick={command("TRAINING_PREPARE",pending.id)}){Text("Reenviar")}
-                                TextButton(enabled=link.connected,onClick={command("TRAINING_CANCEL",pending.id)}){Text("Cancelar")}
+                                OutlinedButton(onClick={dictation.stop();captureLauncher.launch(Intent(context,SessionCaptureActivity::class.java).putExtra("id",pending.id))}){Text("Abrir cámara")}
+                                TextButton(onClick={training.status(pending.id,"cancelled")}){Text("Cancelar")}
                             }
                         }}
                         item {SurfaceCard {
@@ -123,17 +128,17 @@ private data class TrainingSnapshot(val records:List<TrainingRecord> = emptyList
                             TextButton(onClick={newType=true}){Text("+ Crear tipo de actividad")}
                             OutlinedTextField(value=description,onValueChange={description=it.take(1200)},label={Text("Describe la actividad y el contexto")},placeholder={Text("Mano usada, postura, objetos, ambiente y qué quieres comparar…")},modifier=Modifier.fillMaxWidth(),minLines=3,maxLines=7)
                             Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(7.dp)){listOf(30,60,120,300,600).forEach{n->FilterChip(selected=seconds==n,onClick={seconds=n},label={Text(if(n<60)"$n s" else "${n/60} min")})}}
-                            Row(verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text("Audio del reloj",fontSize=17.sp);Text("WAV original, sincronizado con sensores",fontSize=11.sp,color=Muted)};Switch(checked=withAudio,onCheckedChange={withAudio=it})}
-                            Text(if(withAudio)"El micrófono se activará al confirmar en el reloj. Una sesión de 1 min ocupa aproximadamente 1.9 MB de audio." else "Puedes registrar sensores sin audio. El dictado del teléfono es independiente.",fontSize=11.sp,color=Muted)
+                            Text("Cada sesión: video frontal ~480p + audio del reloj + pulso, temperatura, giroscopio y acelerómetro.",color=Mint,fontSize=13.sp)
+                            Text("Crea la sesión, encuadra la cámara y di «acción». Di «corte» para cerrar y guardar. También tienes botones.",color=Muted,fontSize=12.sp)
                             Row(verticalAlignment=Alignment.CenterVertically){Checkbox(checked=technicalTest,onCheckedChange={technicalTest=it});Text("Solo prueba técnica: excluir del entrenamiento",fontSize=12.sp,modifier=Modifier.weight(1f))}
                             Row(verticalAlignment=Alignment.CenterVertically){Checkbox(checked=evaluationOnly,enabled=!technicalTest,onCheckedChange={evaluationOnly=it});Text("Reservar para evaluar: no usar para aprender",fontSize=12.sp,modifier=Modifier.weight(1f))}
-                            Button(enabled=link.connected && link.protocol>=3 && pending==null && !pendingOperation,onClick={
+                            Button(enabled=pending==null && !pendingOperation && !link.recording,onClick={
                                 val selectedType=snapshot.types.firstOrNull{it.id==type} ?: return@Button
                                 pendingOperation=true
                                 scope.launch {runCatching {withContext(Dispatchers.IO){training.prepare(selectedType,description,withAudio,seconds,technicalTest,evaluationOnly)}}
-                                    .onSuccess{command("TRAINING_PREPARE",it.id);notify("Preparación enviada. Confirma el inicio en tu reloj.")}
+                                    .onSuccess{training.status(it.id,"draft");dictation.stop();captureLauncher.launch(Intent(context,SessionCaptureActivity::class.java).putExtra("id",it.id))}
                                     .onFailure{notify(it.message.orEmpty())};pendingOperation=false}
-                            },modifier=Modifier.fillMaxWidth()){Text("Preparar sesión en el reloj")}
+                            },modifier=Modifier.fillMaxWidth()){Text("Crear nueva sesión de ejemplo")}
                         }}
                     }
                     item {SurfaceCard {Eyebrow("REGISTRO, NO CLASIFICACIÓN AUTOMÁTICA");Text("Tú defines la actividad y revisas cada sesión. Las señales, audio, dictados y marcas quedan agrupados por tipo para entrenar después.",fontSize=13.sp,color=Muted)}}
@@ -156,6 +161,7 @@ private data class TrainingSnapshot(val records:List<TrainingRecord> = emptyList
                                 TextButton(enabled=detail.session.isNotBlank(),onClick={signalSession=detail.session;tab=2}){Text("Ver señales")}
                             }
                         }}
+                        item {SessionReviewMedia(store,detail)}
                         item {AudioPlayer(store,detail)}
                         item {SurfaceCard {Eyebrow("DICTADOS COMPLETOS");if(snapshot.transcripts.isEmpty())Text("No hay descripciones por voz para esta sesión.",color=Muted,fontSize=12.sp)
                             snapshot.transcripts.forEach{t->Text(time(t.start)+" – "+time(t.end)+(if(t.partial)" · parcial" else ""),fontSize=10.sp,color=Muted);Text(t.text,fontSize=14.sp)}
@@ -268,7 +274,7 @@ private data class TrainingSnapshot(val records:List<TrainingRecord> = emptyList
     SurfaceCard {Eyebrow("MARCAS Y REFERENCIAS");marks.forEach{m->Text(time(m.wall,"HH:mm:ss.SSS")+" · "+m.values["event"]+" / "+m.values["phase"],fontSize=12.sp,color=if(m.values["phase"]=="CANDIDATE")Amber else Muted)};if(marks.isEmpty())Text("Sin marcas recibidas.",fontSize=12.sp,color=Muted)}
 }
 
-@Composable private fun TrainingSignals(store:Store,session:String,live:Boolean) {
+@Composable internal fun TrainingSignals(store:Store,session:String,live:Boolean) {
     var index by remember {mutableIntStateOf(0)}
     var viewport by remember(session){mutableStateOf<TimeWindow?>(null)}
     var points by remember {mutableStateOf<List<Sample>>(emptyList())}

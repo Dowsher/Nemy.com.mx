@@ -53,8 +53,19 @@ class RecorderService : Service(), SensorEventListener2, HealthSink {
     override fun onBind(intent: Intent?) = null
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
+            "ARM" -> {
+                try {
+                    if (Build.VERSION.SDK_INT >= 34) startForeground(1, notification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_HEALTH or ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
+                    else startForeground(1, notification())
+                    RemoteReady.state.value = true
+                    Live.state.value = Live.state.value.copy(message = "Listo para el teléfono · micrófono apagado")
+                    getSystemService(NotificationManager::class.java).notify(1, notification())
+                } catch(e:Exception) { RemoteReady.state.value=false; Live.state.value=RecorderStatus(message="Revisa los permisos: ${e.message}");stopSelf() }
+            }
+            "DISARM" -> { RemoteReady.state.value=false; handler.post { safe { requestStop("user",SystemClock.elapsedRealtimeNanos()) } } }
             "START" -> {
                 if (Live.state.value.active) return START_NOT_STICKY
+                if(intent.getBooleanExtra("remote",false) && (!RemoteReady.state.value || TrainingInbox.blocked(this,intent.getStringExtra("training_id").orEmpty()) || SystemClock.elapsedRealtimeNanos()>intent.getLongExtra("expires",0))) return START_NOT_STICKY
                 val capture = runCatching { intent.getStringExtra("capture")?.let { ActivityCapture.parse(JSONObject(it)) } }.getOrNull()
                 if(intent.hasExtra("capture") && capture==null) { Live.state.value=RecorderStatus(message="Preparación inválida; no se inició la captura");stopSelf();return START_NOT_STICKY }
                 val cfg = SessionConfig(intent.getStringExtra("participant") ?: "", intent.getStringExtra("wrist") ?: "izq",
@@ -62,9 +73,10 @@ class RecorderService : Service(), SensorEventListener2, HealthSink {
                 if (!cfg.consent || !cfg.participant.matches(Regex("[A-Za-z0-9_-]{1,24}"))) { stopSelf(); return START_NOT_STICKY }
                 try {
                     audioRequested = capture?.audio == true
-                    if (Build.VERSION.SDK_INT >= 34) startForeground(1, notification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_HEALTH or if(audioRequested) ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE else 0)
+                    if (RemoteReady.state.value) getSystemService(NotificationManager::class.java).notify(1, notification())
+                    else if (Build.VERSION.SDK_INT >= 34) startForeground(1, notification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_HEALTH or if(audioRequested) ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE else 0)
                     else startForeground(1, notification())
-                    Live.state.value = RecorderStatus(active = true, message = "Preparando sesión…")
+                    Live.state.value = RecorderStatus(active = true, captureId=capture?.id.orEmpty(), message = "Preparando sesión…")
                     handler.post { safe { begin(cfg) } }
                 } catch (e: Exception) { Live.state.value = RecorderStatus(message = "No se pudo iniciar: ${e.message}"); stopSelf() }
             }
@@ -114,12 +126,20 @@ class RecorderService : Service(), SensorEventListener2, HealthSink {
     }
     private fun notification(): Notification {
         val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-        val stop = PendingIntent.getService(this, 1, Intent(this, RecorderService::class.java).setAction("STOP"), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-        return Notification.Builder(this, "recording").setSmallIcon(R.drawable.ic_record).setContentTitle("Visio • grabando datos locales")
-            .setContentText(if(audioRequested) "Sensores + micrófono activos · Detener para finalizar" else "Sensores activos · sin audio").setContentIntent(open).setOngoing(true).setOnlyAlertOnce(true)
+        val stop = PendingIntent.getService(this, 1, Intent(this, RecorderService::class.java).setAction("DISARM"), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        return Notification.Builder(this, "recording").setSmallIcon(R.drawable.ic_record).setContentTitle(if(Live.state.value.active) "Visio · grabando" else "Visio · listo para el teléfono")
+            .setContentText(if(!Live.state.value.active) "Sensores y micrófono apagados · control desde teléfono" else if(audioRequested) "Sensores + micrófono activos · Detener para finalizar" else "Sensores activos · sin audio").setContentIntent(open).setOngoing(true).setOnlyAlertOnce(true)
             .addAction(Notification.Action.Builder(null, "Detener", stop).build()).build()
     }
     private fun begin(cfg: SessionConfig) {
+        if(cfg.capture?.let {TrainingInbox.blocked(this,it.id)}==true) {
+            Live.state.value=RecorderStatus(message="Inicio cancelado por el teléfono")
+            return
+        }
+        stopping=false; cutoff=Long.MAX_VALUE; reason="user"; event=null; eventId=""
+        pointIds.clear(); flushPending.clear(); activeSensors.clear(); healthFlushed=false
+        lastBattery=0; lastCheckpoint=0; healthStatus="Iniciando salud"
+        main.post { getSystemService(NotificationManager::class.java).notify(1,notification()) }
         val out = SessionWriter(this, cfg); writer = out
         cfg.capture?.let {
             TrainingInbox.started(this, it.id)
@@ -143,7 +163,7 @@ class RecorderService : Service(), SensorEventListener2, HealthSink {
         }
         val inventory = JSONArray()
         var allWake = true
-        for (type in listOf(Sensor.TYPE_ACCELEROMETER, Sensor.TYPE_LOW_LATENCY_OFFBODY_DETECT)) {
+        for (type in listOf(Sensor.TYPE_ACCELEROMETER, Sensor.TYPE_GYROSCOPE, Sensor.TYPE_LOW_LATENCY_OFFBODY_DETECT)) {
             val sensor = manager.getDefaultSensor(type, true) ?: manager.getDefaultSensor(type, false)
             if (sensor == null) { inventory.put(JSONObject().put("type", type).put("available", false)); continue }
             val imu = type != Sensor.TYPE_LOW_LATENCY_OFFBODY_DETECT
@@ -189,6 +209,7 @@ class RecorderService : Service(), SensorEventListener2, HealthSink {
         }
         if (t < out.startNs || t > cutoff) return@safe
         when (e.sensor.type) {
+            Sensor.TYPE_GYROSCOPE -> out.write("giroscopio", t, listOf(e.values[0], e.values[1], e.values[2], e.accuracy, received), period = 40_000_000)
             Sensor.TYPE_ACCELEROMETER -> out.write("acelerometro", t, listOf(e.values[0], e.values[1], e.values[2], e.accuracy, received), period = 40_000_000)
         }
     }
@@ -230,7 +251,7 @@ class RecorderService : Service(), SensorEventListener2, HealthSink {
             }
             val counts = out.stats.mapValues { it.value.count }
             val hz = out.stats.mapValues { it.value.hz() }
-            val stale = listOf("acelerometro").any { now - (out.stats[it]?.last ?: out.startNs) > 6_000_000_000L }
+            val stale = listOf("acelerometro","giroscopio").any { now - (out.stats[it]?.last ?: out.startNs) > 6_000_000_000L }
             Live.state.value = RecorderStatus(true, false, (now - out.startNs) / 1_000_000_000, hz, counts, battery, event,
                 if (stale) "AVISO: IMU sin datos recientes" else "Grabando", out.dir.name, healthStatus,
                 out.capture?.id.orEmpty(), out.capture?.activity.orEmpty(), out.capture?.durationSeconds ?: 0, audio?.state ?: AudioState())
@@ -238,7 +259,7 @@ class RecorderService : Service(), SensorEventListener2, HealthSink {
         }
     }
     private fun requestStop(why: String, t: Long) {
-        val out = writer ?: run { stopSelf(); return }
+        val out = writer ?: run { if(!RemoteReady.state.value) stopSelf(); return }
         if (stopping) return
         // El botón se recibe en main y se procesa en el hilo de captura. No cerrar
         // retroactivamente antes de muestras ya escritas mientras se entregaba STOP.
@@ -268,7 +289,10 @@ class RecorderService : Service(), SensorEventListener2, HealthSink {
         writer = null; wake?.let { if (it.isHeld) it.release() }; wake = null
         handler.removeCallbacksAndMessages(null)
         Live.state.value = Live.state.value.copy(active = false, stopping = false, event = null, message = if (flushed) "Sesión guardada" else "Guardada con aviso de flush")
-        main.post { stopForeground(STOP_FOREGROUND_REMOVE); stopSelf() }
+        main.post {
+            if(RemoteReady.state.value) getSystemService(NotificationManager::class.java).notify(1,notification())
+            else { stopForeground(STOP_FOREGROUND_REMOVE); stopSelf() }
+        }
     }
     override fun row(stream: String, sourceMs: Long, receivedNs: Long, receivedWall: Long, batch: Long, index: Int, size: Int, values: List<Any?>) = safe {
         val out = writer ?: return@safe
@@ -286,15 +310,20 @@ class RecorderService : Service(), SensorEventListener2, HealthSink {
     override fun error(source: String, message: String) = safe { writer?.error(source, message) }
     private inline fun safe(block: () -> Unit) {
         try { block() } catch (e: Exception) {
+            RemoteReady.state.value=false
             manager.unregisterListener(this); runCatching { health?.stop() }
             runCatching { audio?.let { writer?.put("audio", it.stop()) } }; audio = null
             runCatching { writer?.finish(SystemClock.elapsedRealtimeNanos(), "error:${e.javaClass.simpleName}", false) }; writer = null
             wake?.let { if (it.isHeld) it.release() }; wake = null
             Live.state.value = Live.state.value.copy(active = false, stopping = false, message = "Registro interrumpido: ${e.message}")
-            main.post { stopForeground(STOP_FOREGROUND_REMOVE); stopSelf() }
+            main.post {
+            if(RemoteReady.state.value) getSystemService(NotificationManager::class.java).notify(1,notification())
+            else { stopForeground(STOP_FOREGROUND_REMOVE); stopSelf() }
+        }
         }
     }
     override fun onDestroy() {
+        RemoteReady.state.value=false
         unregisterReceiver(screenReceiver)
         handler.post { safe {
             manager.unregisterListener(this); health?.stop()

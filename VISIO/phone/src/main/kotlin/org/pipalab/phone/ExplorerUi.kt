@@ -56,7 +56,7 @@ internal fun sensorDescription(metric:Metric):String=when(metric.label) {
                 TextButton(onClick={expanded=!big}){Text(if(big)"Cerrar" else "Ampliar",fontSize=12.sp)}
             }
             Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(6.dp)) {
-                metrics.forEachIndexed{i,m->if(!live || m.stream in setOf("heart_rate","temperatura","acelerometro"))FilterChip(selected=index==i,onClick={select(i)},label={Text(m.label,fontSize=11.sp)})}
+                metrics.forEachIndexed{i,m->if(!live || m.stream in setOf("heart_rate","temperatura","acelerometro","giroscopio"))FilterChip(selected=index==i,onClick={select(i)},label={Text(m.label,fontSize=11.sp)})}
             }
             ExplorerPlot(points,metric,confirmed,window,if(big)310 else 190,
                 transform=onTransform,onPoint=onPoint)
