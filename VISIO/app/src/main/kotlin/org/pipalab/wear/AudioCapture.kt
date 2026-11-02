@@ -13,7 +13,7 @@ import kotlin.math.abs
 import kotlin.math.sqrt
 
 data class AudioState(val state: String = "off", val seconds: Double = 0.0, val rms: Double = 0.0,
-    val peak: Double = 0.0, val clipped: Long = 0, val message: String = "", val silenced: Boolean = false)
+    val peak: Double = 0.0, val clipped: Long = 0, val message: String = "", val silenced: Boolean = false, val envelope:List<Double> = emptyList(), val updatedNs:Long=0)
 
 /** Session-bounded local PCM, with independent acquisition-clock anchors. No sound classifier. */
 class AudioCapture(private val context: Context, private val dir: File, private val anchorNs: Long, private val anchorWall: Long,
@@ -52,6 +52,7 @@ class AudioCapture(private val context: Context, private val dir: File, private 
     private fun capture(input: AudioRecord) {
         var frames = 0L; var clippedTotal = 0L; var anchors = 0L; var lastAnchor = 0L
         var failure: String? = null
+        val envelope=ArrayDeque<Double>()
         try {
             PcmWave(File(dir, "audio.wav")).use { wave ->
                 File(dir, "audio_timeline.csv").bufferedWriter().use { timeline ->
@@ -85,7 +86,8 @@ class AudioCapture(private val context: Context, private val dir: File, private 
                             timeline.flush(); lastAnchor = received; if (hardware) anchors++
                         }
                         frames += count
-                        state = AudioState("recording", frames / 16000.0, rms, peak / 32768.0, clippedTotal, silenced = silenced)
+                        envelope.addLast(peak / 32768.0);while(envelope.size>64)envelope.removeFirst()
+                        state = AudioState("recording", frames / 16000.0, rms, peak / 32768.0, clippedTotal, silenced = silenced, envelope=envelope.toList(),updatedNs=received)
                     }
                 }
             }

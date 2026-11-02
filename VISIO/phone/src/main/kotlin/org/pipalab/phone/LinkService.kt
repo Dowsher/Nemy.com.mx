@@ -17,6 +17,7 @@ class LinkService:Service() {
     private lateinit var handler:Handler
     private lateinit var db:Store
     private var endpoint:BleClient?=null
+    private lateinit var detector:ReferenceDetector
     private var lastDemoImpulse=0L
     private var lastCatalog=0L
     private var chunkRequestedMs=0L
@@ -28,7 +29,7 @@ class LinkService:Service() {
     override fun onBind(intent:Intent?)=null
     override fun onCreate() {
         super.onCreate(); db=Store.get(this)
-        getSharedPreferences("prefs",MODE_PRIVATE).edit().putBoolean("detection",false).putBoolean("esp_automatic",false).putBoolean("audio_demo",false).apply()
+        getSharedPreferences("prefs",MODE_PRIVATE).edit().putBoolean("detection",false).putBoolean("esp_automatic",false).apply()
         Notices.channels(this)
         val stop=PendingIntent.getService(this,7,Intent(this,LinkService::class.java).setAction("STOP"),PendingIntent.FLAG_IMMUTABLE)
         val n=Notification.Builder(this,"link").setSmallIcon(R.drawable.ic_lab).setContentTitle("Visio · enlace local")
@@ -36,12 +37,13 @@ class LinkService:Service() {
             .addAction(Notification.Action.Builder(null,"Desconectar",stop).build()).build()
         startForeground(90,n,ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE)
         worker=HandlerThread("PipaPhoneLink").apply{start()}; handler=Handler(worker.looper)
+        detector=ReferenceDetector(this) {message->handler.post {send(message)}}
         handler.post {
             runCatching {
                 val key=PairingKeys.load(this) ?: error("Falta configurar el vínculo privado")
                 endpoint=BleClient(this,handler,key,{ text,ready ->
                     PhoneLive.state.value=PhoneLive.state.value.copy(text=text,connected=ready,recording=if(ready) PhoneLive.state.value.recording else false)
-                    if(!ready) { PhoneLive.clock.clear(); pending=null; queue.clear(); lastDemoImpulse=0L; getSharedPreferences("prefs",MODE_PRIVATE).edit().putBoolean("audio_demo",false).apply() }
+                    if(!ready) { PhoneLive.clock.clear(); pending=null; queue.clear(); lastDemoImpulse=0L; getSharedPreferences("prefs",MODE_PRIVATE).edit().apply() }
                 },::receive).also{it.start()}
                 handler.post(tick)
             }.onFailure{PhoneLive.state.value=LinkStatus(text=it.message ?: "Error al conectar"); stopSelf()}
@@ -100,6 +102,12 @@ class LinkService:Service() {
         try {
             val j=JSONObject(text)
             when(j.getString("type")) {
+                "detection_response" -> {
+                    if(DetectionStore(db).review(j.getString("event_id"),j.getString("label"),source="watch",responseId=j.getString("id"),original=j))
+                        send(JSONObject().put("type","detection_response_ack").put("id",j.getString("id")))
+                }
+                "audio_meter" -> AudioMeter.accept(j)
+
                 "clock_pong" -> PhoneLive.clock.add(ClockProbe(j.getLong("p1"),j.getLong("w2"),j.getLong("w3"),SystemClock.elapsedRealtimeNanos()))
                 "stop_ack" -> {
                     val prefs=getSharedPreferences("capture_stop",0)
@@ -109,7 +117,7 @@ class LinkService:Service() {
                 "status" -> {
                     val recording=j.getBoolean("recording"); val session=j.optString("session")
                     if(session!=PhoneLive.state.value.session)lastDemoImpulse=0L
-                    if(!recording)getSharedPreferences("prefs",MODE_PRIVATE).edit().putBoolean("audio_demo",false).apply()
+                    if(!recording)getSharedPreferences("prefs",MODE_PRIVATE).edit().apply()
                     if(recording!=wasRecording) endpoint?.priority(recording || pending!=null)
                     PhoneLive.state.value=PhoneLive.state.value.copy(recording=recording,session=session,battery=j.optInt("battery",-1),clockDelta=System.currentTimeMillis()-j.getLong("wall"),compact=j.optBoolean("compact"),protocol=j.optInt("protocol",1),watchElapsed=j.optLong("elapsed"))
                     PhoneLive.state.value=PhoneLive.state.value.copy(trainingId=j.optString("training_id"),pendingTrainingId=j.optString("pending_training_id"),activity=j.optString("activity"),
@@ -125,7 +133,7 @@ class LinkService:Service() {
                 "audio_impulse" -> {
                     val live=PhoneLive.state.value;val elapsed=j.getLong("elapsed")
                     val fresh=System.currentTimeMillis()-live.clockDelta-j.getLong("wall") in -1000..3500
-                    if(getSharedPreferences("prefs",MODE_PRIVATE).getBoolean("audio_demo",false) && live.recording && live.trainingId==j.getString("training_id") && fresh && elapsed-lastDemoImpulse>1_500_000_000L) {
+                    if(getSharedPreferences("prefs",MODE_PRIVATE).getBoolean("audio_demo",false) && live.connected && EspLive.state.value.ready && live.audioState=="recording" && !live.audioSilenced && live.recording && live.trainingId==j.getString("training_id") && fresh && elapsed-lastDemoImpulse>1_500_000_000L) {
                         lastDemoImpulse=elapsed;EspTrigger.pulse(this,j.getString("id"),"demo_sound")
                     }
                 }
@@ -139,6 +147,7 @@ class LinkService:Service() {
                         values.add(a.getLong(0) to row)
 
                     }
+                    detector.add(id,stream,values.map{it.second})
                     if(j.optBoolean("persist",true))db.insertRows(id,file,stream,values)
                     if(stream !in listOf("resumen_minuto","ventanas"))LiveSamples.add(id,stream,values.map{(idx,row)->Sample(row.getLong("t_wall_ms"),row.getLong("t_elapsed_ns"),row.keys().asSequence().associateWith{row.optString(it)},if(j.optBoolean("persist",true))"raw" else "live",file,idx)})
                     if(stream !in listOf("resumen_minuto","ventanas"))PhoneLive.state.value=PhoneLive.state.value.copy(lastData=System.currentTimeMillis(),session=id)
@@ -217,6 +226,7 @@ class LinkService:Service() {
         handler.postDelayed(this,3000)
     } }
     override fun onDestroy() {
+        if(::detector.isInitialized)detector.close()
         if(::handler.isInitialized) handler.post { handler.removeCallbacks(tick); endpoint?.stop(); worker.quitSafely() }
         PhoneLive.state.value=PhoneLive.state.value.copy(connected=false,recording=false,text="Enlace apagado")
         super.onDestroy()

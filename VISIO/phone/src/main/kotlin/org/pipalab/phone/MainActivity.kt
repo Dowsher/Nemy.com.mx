@@ -56,12 +56,10 @@ internal fun title(kind:String)=mapOf("PIPA" to "Pipa","PIPA_SIM" to "Pipa simul
 private fun stateLabel(s:String)=mapOf("confirmed" to "Confirmado","false_positive" to "Falso positivo","pending" to "Por revisar").getOrDefault(s,s)
 internal data class Metric(val label:String,val stream:String,val keys:List<String>,val unit:String)
 internal val metrics=listOf(
-    Metric("Pulso","heart_rate",listOf("bpm"),"lpm"),Metric("Movimiento","acelerometro",listOf("x_m_s2","y_m_s2","z_m_s2"),"m/s²"),
-    Metric("Giro","giroscopio",listOf("x_rad_s","y_rad_s","z_rad_s"),"rad/s"),Metric("PPG","ppg",listOf("green"),"verde · cuentas"),
-    Metric("IBI","heart_rate",listOf("ibi_ms_json"),"ms"),Metric("Piel","temperatura",listOf("skin_c","ambient_c"),"°C"),
-    Metric("EDA","eda",listOf("conductance_us"),"µS"),Metric("PPG IR","ppg",listOf("ir"),"infrarrojo · cuentas"),
-    Metric("PPG rojo","ppg",listOf("red"),"rojo · cuentas"),Metric("Uso","offbody",listOf("worn"),"0 fuera / 1 puesto"),
-    Metric("Batería","bateria",listOf("percent"),"%"))
+    Metric("Pulso","heart_rate",listOf("bpm"),"lpm"),
+    Metric("Acelerómetro","acelerometro",listOf("x_m_s2","y_m_s2","z_m_s2"),"m/s²"),
+    Metric("Giroscopio","giroscopio",listOf("x_rad_s","y_rad_s","z_rad_s"),"rad/s"),
+    Metric("Temperatura de piel","temperatura",listOf("skin_c"),"°C"))
 internal fun value(s:Sample,key:String):Double? {
     if(s.source=="minute")return s.values[key]?.toDoubleOrNull()
     if(key in listOf("green","ir","red") && s.values[key+"_status"]!="0")return null
@@ -97,11 +95,23 @@ class MainActivity:ComponentActivity() {
     }
     override fun onCreate(savedInstanceState:Bundle?) {
         super.onCreate(savedInstanceState);enableEdgeToEdge();store=Store.get(this)
+        if(BuildConfig.DEBUG && intent.getBooleanExtra("detector_probe",false)) {
+            Thread {
+                val result=runCatching {
+                    if(!com.chaquo.python.Python.isStarted())com.chaquo.python.Python.start(com.chaquo.python.android.AndroidPlatform(applicationContext))
+                    com.chaquo.python.Python.getInstance().getModule("visio_probe").callAttr("run").toString()
+                }.getOrElse {JSONObject().put("passed",false).put("error",it.toString()).toString()}
+                java.io.File(filesDir,"detector-probe.json").writeText(result)
+                runOnUiThread {finish()}
+            }.start()
+            return
+        }
+
         val interrupted=SessionMedia(store).recover()
         if(interrupted.isNotEmpty())getSharedPreferences("capture_stop",0).let {p->
             p.edit().putStringSet("ids",p.getStringSet("ids",emptySet()).orEmpty()+interrupted).commit()
         }
-        getSharedPreferences("prefs",MODE_PRIVATE).edit().putBoolean("detection",false).putBoolean("esp_automatic",false).putBoolean("audio_demo",false).apply()
+        getSharedPreferences("prefs",MODE_PRIVATE).edit().putBoolean("detection",false).putBoolean("esp_automatic",false).apply()
         getSystemService(NotificationManager::class.java).activeNotifications.filter{it.notification.channelId=="candidates"}.forEach{getSystemService(NotificationManager::class.java).cancel(it.id)}
         dictation=TrainingDictation(this,TrainingStore(store))
         LearningEngine.get(this).refresh()

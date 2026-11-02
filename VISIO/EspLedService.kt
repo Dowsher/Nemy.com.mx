@@ -19,6 +19,7 @@ object EspTrigger {
     fun pulse(context:Context,event:String,source:String) {
         val prefs=context.getSharedPreferences("prefs",Context.MODE_PRIVATE)
         if(source=="automatic" && !prefs.getBoolean("esp_automatic",true)) return
+        if(source=="demo_sound" && !prefs.getBoolean("audio_demo",false))return
         val duration=prefs.getInt("esp_duration",5000).coerceIn(100,10000)
         val id=UUID.randomUUID().toString()
         Store.get(context).ledRequest(id,event,source,duration)
@@ -27,7 +28,7 @@ object EspTrigger {
             EspLive.state.value=EspLive.state.value.copy(last="Sin envío · placa desconectada")
             return
         }
-        runCatching { context.startService(Intent(context,EspLedService::class.java).setAction("PULSE").putExtra("id",id).putExtra("duration",duration)) }
+        runCatching { context.startService(Intent(context,EspLedService::class.java).setAction("PULSE").putExtra("id",id).putExtra("duration",duration).putExtra("source",source).putExtra("created",SystemClock.elapsedRealtime())) }
             .onFailure{Store.get(context).ledResult(id,"not_sent","No se pudo iniciar el envío")}
     }
 }
@@ -44,7 +45,7 @@ class EspLedService:Service() {
     private var discovering=false
     private var active:Command?=null
     private val queue=ArrayDeque<Command>()
-    private data class Command(val id:String,val duration:Int)
+    private data class Command(val id:String,val duration:Int,val source:String,val created:Long)
     private val scan=object:ScanCallback() {
         override fun onScanResult(type:Int,result:ScanResult) { h.post {
             val found=EspDevice(result.device.address,result.scanRecord?.deviceName ?: "VisioLED",result.rssi)
@@ -135,7 +136,7 @@ class EspLedService:Service() {
             "PULSE" -> h.post {
                 val key=intent.getStringExtra("id") ?: return@post
                 if(!ready || queue.size>=8) {store.ledResult(key,"not_sent","La placa no está lista");return@post}
-                queue.addLast(Command(key,intent.getIntExtra("duration",5000).coerceIn(100,10000)));pump()
+                queue.addLast(Command(key,intent.getIntExtra("duration",5000).coerceIn(100,10000),intent.getStringExtra("source").orEmpty(),intent.getLongExtra("created",0)));pump()
             }
             "STOP" -> stopSelf()
         }
@@ -162,6 +163,9 @@ class EspLedService:Service() {
     private fun pump() {
         if(active!=null || queue.isEmpty() || !ready) return
         val command=queue.removeFirst();active=command
+        if(command.source=="demo_sound" && (!getSharedPreferences("prefs",0).getBoolean("audio_demo",false) || !PhoneLive.state.value.recording || SystemClock.elapsedRealtime()-command.created !in 0..2000)) {
+            finish("cancelled","Demo desactivada o impulso caducado");return
+        }
         val r=rx ?: return finish("not_sent","Canal no disponible")
         r.value=LedProtocol.command(UUID.fromString(command.id),command.duration)
         r.writeType=BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT

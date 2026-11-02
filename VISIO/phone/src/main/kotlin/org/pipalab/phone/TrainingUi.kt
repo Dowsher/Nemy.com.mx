@@ -39,7 +39,7 @@ private data class TrainingSnapshot(val records:List<TrainingRecord> = emptyList
     val link by PhoneLive.state.collectAsState()
     val esp by EspLive.state.collectAsState()
     val voice by dictation.state.collectAsState()
-    var tab by rememberSaveable {mutableIntStateOf(0)}
+    var tab by rememberSaveable {mutableIntStateOf(2)}
     var selected by rememberSaveable {mutableStateOf("")}
     val captureLauncher=androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()) {result->
         result.data?.getStringExtra("id")?.let {selected=it;tab=1}
@@ -55,7 +55,8 @@ private data class TrainingSnapshot(val records:List<TrainingRecord> = emptyList
     var newType by remember {mutableStateOf(false)}
     var editing by remember {mutableStateOf<TrainingRecord?>(null)}
     val prefs=remember{context.getSharedPreferences("prefs",Context.MODE_PRIVATE)}
-    var demo by remember {mutableStateOf(false)}
+    var demo by remember {mutableStateOf(prefs.getBoolean("audio_demo",false))}
+    LaunchedEffect(tab){demo=prefs.getBoolean("audio_demo",false)}
     var ledDuration by remember {mutableIntStateOf(prefs.getInt("esp_duration",1000))}
     var pendingOperation by remember {mutableStateOf(false)}
     LaunchedEffect(learner){learner.refresh();while(isActive){withContext(Dispatchers.IO){learner.live()};delay(3000)}}
@@ -63,7 +64,7 @@ private data class TrainingSnapshot(val records:List<TrainingRecord> = emptyList
         snapshot=withContext(Dispatchers.IO){TrainingSnapshot(training.records(),training.types(),store.sessions(),training.transcripts(if(tab==1)selected else PhoneLive.state.value.trainingId))}
         delay(1200)
     }}
-    LaunchedEffect(link.recording,link.connected) {if(!link.recording || !link.connected){dictation.stop();demo=false;prefs.edit().putBoolean("audio_demo",false).apply()}}
+    LaunchedEffect(link.recording,link.connected) {if(!link.recording || !link.connected){dictation.stop()}}
     fun command(action:String,id:String,label:String="") {
         context.startService(Intent(context,LinkService::class.java).setAction(action).putExtra("id",id).putExtra("label",label))
     }
@@ -73,10 +74,10 @@ private data class TrainingSnapshot(val records:List<TrainingRecord> = emptyList
     val detail=snapshot.records.firstOrNull{it.id==selected}
     val fresh=link.connected && link.recording && System.currentTimeMillis()-link.lastData<10000
     Scaffold(containerColor=Ink,bottomBar={NavigationBar(containerColor=Ink) {
-        listOf("Capturar","Sesiones","Señales","Aprender","Ajustes").forEachIndexed { i,label -> NavigationBarItem(selected=tab==i,onClick={tab=i},icon={Text(listOf("●","▤","⌁","◇","⚙")[i],color=if(tab==i)Lime else Muted,fontSize=22.sp)},label={Text(label,fontSize=10.sp)},colors=NavigationBarItemDefaults.colors(indicatorColor=Color(0xFF243720))) }
+        listOf("Capturar","Sesiones","En vivo","Aprender","Ajustes").forEachIndexed { i,label -> NavigationBarItem(selected=tab==i,onClick={tab=i},icon={Text(listOf("●","▤","⌁","◇","⚙")[i],color=if(tab==i)Lime else Muted,fontSize=22.sp)},label={Text(label,fontSize=10.sp)},colors=NavigationBarItemDefaults.colors(indicatorColor=Color(0xFF243720))) }
     }}) { inset ->
         LazyColumn(Modifier.fillMaxSize().padding(inset),contentPadding=PaddingValues(20.dp),verticalArrangement=Arrangement.spacedBy(16.dp)) {
-            item {Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Text("Visio",fontSize=30.sp,fontWeight=FontWeight.SemiBold);Spacer(Modifier.weight(1f));Column(horizontalAlignment=Alignment.End){Text("NEMY",color=Lime,fontFamily=Mono,letterSpacing=2.sp);Text("SESSIONS / 0.8",color=Muted,fontFamily=Mono,fontSize=9.sp)}}}
+            item {Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Text("Visio",fontSize=30.sp,fontWeight=FontWeight.SemiBold);Spacer(Modifier.weight(1f));Column(horizontalAlignment=Alignment.End){Text("NEMY",color=Lime,fontFamily=Mono,letterSpacing=2.sp);Text("LIVE / 0.9",color=Muted,fontFamily=Mono,fontSize=9.sp)}}}
             if(notice.isNotBlank())item {Text(notice,color=Amber,fontSize=12.sp,modifier=Modifier.fillMaxWidth().clickable{notify("")}.padding(8.dp))}
             when(tab) {
                 0 -> {
@@ -168,6 +169,7 @@ private data class TrainingSnapshot(val records:List<TrainingRecord> = emptyList
                             if(snapshot.transcripts.isNotEmpty())Text("Transcripción automática: revísala y usa la descripción editable para corregir el significado. Los originales se conservan.",fontSize=11.sp,color=Muted)
                         }}
                         item {TrainingMarkers(store,detail.session)}
+                        item {DetectionReviews(store,detail.session)}
                     } else {
                         snapshot.records.groupBy{it.typeId}.forEach{(_,group)->
                             item {Text(group.first().activity+" · "+group.size,fontSize=19.sp,color=Lime)}
@@ -183,15 +185,18 @@ private data class TrainingSnapshot(val records:List<TrainingRecord> = emptyList
                     item {Button(onClick=export,modifier=Modifier.fillMaxWidth()){Text("Exportar base de entrenamiento")}}
                 }
                 2 -> {
-                    item {Text("Explorar señales",fontSize=27.sp,fontWeight=FontWeight.SemiBold)}
+                    item {Text("Tu señal, en tiempo real",fontSize=27.sp,fontWeight=FontWeight.SemiBold)}
+                    if(signalSession.isBlank())item {Column(verticalArrangement=Arrangement.spacedBy(16.dp)){LiveDashboard(store,connect)}}
                     item {Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                         FilterChip(selected=signalSession.isBlank(),onClick={signalSession=""},label={Text("En vivo")})
                         snapshot.sessions.forEach{s->FilterChip(selected=signalSession==s.id,onClick={signalSession=s.id},label={Text(time(s.start,"dd/MM HH:mm"))})}
                     }}
                     item {TrainingSignals(store,signalSession.ifBlank{link.session},signalSession.isBlank() && link.recording)}
+                    item {DetectionReviews(store,signalSession.ifBlank{null})}
                 }
                 3 -> { item {LearningPanel(learner,learning)} }
                 else -> {
+                    item {DetectorSettings()}
                     item {SurfaceCard {Eyebrow("RELOJ");Text(link.text);Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){Button(onClick=connect){Text("Conectar")};OutlinedButton(onClick={context.stopService(Intent(context,LinkService::class.java))}){Text("Desconectar")}}}}
                     item {SurfaceCard {
                         Eyebrow("DEMO SONORA → LED")
@@ -199,7 +204,7 @@ private data class TrainingSnapshot(val records:List<TrainingRecord> = emptyList
                         Text(esp.text,color=if(esp.ready)Lime else Muted,fontSize=13.sp)
                         Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){Button(onClick={espAction("SCAN","")}){Text("Buscar ESP32")};OutlinedButton(onClick={espAction("CONNECT",prefs.getString("esp_address","").orEmpty())}){Text("Reconectar")}}
                         esp.devices.forEach{d->OutlinedButton(onClick={espAction("CONNECT",d.address)},modifier=Modifier.fillMaxWidth()){Text(d.name+" · "+d.address.takeLast(5))}}
-                        Row(verticalAlignment=Alignment.CenterVertically){Text("Activar demo sonora",modifier=Modifier.weight(1f));Switch(checked=demo,enabled=demo || (esp.ready && link.recording && link.audioState=="recording"),onCheckedChange={demo=it;prefs.edit().putBoolean("audio_demo",it).apply()})}
+                        Row(verticalAlignment=Alignment.CenterVertically){Text("Activar demo sonora",modifier=Modifier.weight(1f));Switch(checked=demo,onCheckedChange={demo=it;prefs.edit().putBoolean("audio_demo",it).apply()})}
                         Text("Inicia una sesión con audio, conecta el LED y activa la demo. Truena los dedos cerca del reloj después de un segundo de ambiente.",fontSize=12.sp,color=Muted)
                         Text("Esta demo responde a impulsos breves: también puede activarse con palmadas, golpes o un encendedor. No identifica exclusivamente el sonido ni etiqueta una actividad.",fontSize=12.sp,color=Amber)
                         Row(horizontalArrangement=Arrangement.spacedBy(7.dp)){listOf(1000,3000,5000).forEach{n->FilterChip(selected=ledDuration==n,onClick={ledDuration=n;prefs.edit().putInt("esp_duration",n).apply()},label={Text("${n/1000} s")})}}
@@ -284,6 +289,8 @@ private data class TrainingSnapshot(val records:List<TrainingRecord> = emptyList
     var point by remember {mutableStateOf<Sample?>(null)}
     var about by remember {mutableStateOf(false)}
     var raw by remember {mutableStateOf<RawQuery?>(null)}
+    var detections by remember {mutableStateOf<List<EventInfo>>(emptyList())}
+    var selectedDetection by remember {mutableStateOf<EventInfo?>(null)}
     val metric=metrics[index]
     LaunchedEffect(session,index,viewport,live){while(isActive){withContext(Dispatchers.IO){
         val s=store.sessions().firstOrNull{it.id==session}
@@ -291,13 +298,17 @@ private data class TrainingSnapshot(val records:List<TrainingRecord> = emptyList
         val start=s?.start ?: 0L
         val w=(viewport ?: TimeWindow(maxOf(start,end-60000),end.coerceAtLeast(start+1))).constrain(start,end.coerceAtLeast(start+1))
         val result=if(session.isBlank())emptyList() else store.plot(session,metric.stream,w.from,w.to)
-        withContext(Dispatchers.Main){first=start;last=end.coerceAtLeast(start+1);window=w;points=result}
+        val marks=DetectionStore(store).events(session).filter{it.optString("label")=="confirmed"}.map {r->
+            val e=JSONObject(r.getString("evidence"));EventInfo(r.getString("id"),e.optLong("start_wall_ms"),e.optLong("end_wall_ms"),session,"CONSUMO_CONFIRMADO","reference","confirmed","Confirmado por la persona",e.toString())
+        }
+        withContext(Dispatchers.Main){first=start;last=end.coerceAtLeast(start+1);window=w;points=result;detections=marks}
     };delay(1500)}}
     Column(verticalArrangement=Arrangement.spacedBy(12.dp)) {
-        ChartExplorer(metric,index,{index=it},points,emptyList(),window,first,last,live,{viewport=it},{zoom,pan,anchor->viewport=window.transform(zoom,pan,anchor,first,last)},
-            {viewport=null},{point=it},{},{about=true})
+        ChartExplorer(metric,index,{index=it},points,detections,window,first,last,live,{viewport=it},{zoom,pan,anchor->viewport=window.transform(zoom,pan,anchor,first,last)},
+            {viewport=null},{point=it},{selectedDetection=it},{about=true})
         if(session.isNotBlank()) {MinuteBrowser(store,session){raw=it};TextButton(onClick={raw=RawQuery(session,metric.stream,window.from,window.to)}){Text("Ver mediciones individuales")}}
     }
+    selectedDetection?.let {e->AlertDialog(onDismissRequest={selectedDetection=null},title={Text("Consumo confirmado")},text={Text("${time(e.time)} – ${time(e.end)}. Puedes cambiar la calificación en Detecciones y etiquetas; la revisión anterior se conserva.")},confirmButton={TextButton(onClick={selectedDetection=null}){Text("Cerrar")}})}
     raw?.let{RawMeasurementsDialog(store,it){raw=null}}
     if(about)AlertDialog(onDismissRequest={about=false},title={Text(metric.label)},text={Text(sensorDescription(metric))},confirmButton={TextButton(onClick={about=false}){Text("Cerrar")}})
     point?.let{p->AlertDialog(onDismissRequest={point=null},title={Text(time(p.wall,"HH:mm:ss.SSS"))},text={Column(Modifier.heightIn(max=400.dp).verticalScroll(rememberScrollState())){Text(p.values.entries.joinToString("\n"){it.key+": "+it.value},fontFamily=Mono,fontSize=12.sp)}},confirmButton={TextButton(onClick={point=null}){Text("Cerrar")}})}

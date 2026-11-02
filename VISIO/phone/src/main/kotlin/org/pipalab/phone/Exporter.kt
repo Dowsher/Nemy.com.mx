@@ -30,6 +30,7 @@ object Exporter {
                 for(i in 0 until types.length())if(types.getJSONObject(i).optString("id") in typeIds)selectedTypes.put(types.getJSONObject(i))
                 dataset.put("activity_types",selectedTypes)
             }
+            entry("detecciones.json",DetectionStore(db).export(if(captureId==null)null else ids).toString(2))
             entry("dataset.json",dataset.put("schema","visio-multimodal-dataset-v2").toString(2))
             learning?.let{entry("aprendizaje.json",it.toString(2))}
             if(captureId==null)entry("actuaciones_led.csv",db.exportLed())

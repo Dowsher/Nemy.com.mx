@@ -41,7 +41,7 @@ import kotlin.math.abs
     }
     DisposableEffect(record.id) {onDispose {video?.stopPlayback();audio?.release();audio=null}}
     LaunchedEffect(record.id,record.verified) {
-        quality=withContext(Dispatchers.IO) {listOf(metrics[0],metrics[5],metrics[1],metrics[2]).map {metric->
+        quality=withContext(Dispatchers.IO) {listOf(metrics[0],metrics[3],metrics[1],metrics[2]).map {metric->
             var total=0;var valid=0
             store.readableDatabase.rawQuery("SELECT data FROM samples WHERE session=? AND stream=?",arrayOf(record.session,metric.stream)).use {c->
                 while(c.moveToNext()) {
@@ -80,7 +80,7 @@ import kotlin.math.abs
                         if(sm!=null) {
                             val watchNs=meta.optLong("video_origin_phone_ns")+meta.optLong("watch_minus_phone_ns")+v.currentPosition*1_000_000L
                             val wall=sm.optLong("start_wall_ms")+(watchNs-sm.optLong("start_elapsed_ns"))/1_000_000
-                            signalText=withContext(Dispatchers.IO){listOf(metrics[0],metrics[5],metrics[1],metrics[2]).joinToString("\n") {metric->
+                            signalText=withContext(Dispatchers.IO){listOf(metrics[0],metrics[3],metrics[1],metrics[2]).joinToString("\n") {metric->
                                 val point=store.rawPage(record.session,metric.stream,wall-2000,wall+100,0,200).minByOrNull{abs(it.wall-wall)}
                                 metric.label+": "+if(point==null) "sin muestra cercana" else metric.keys.joinToString(" / "){num(value(point,it),2)}+" "+metric.unit
                             }}

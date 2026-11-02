@@ -71,7 +71,11 @@ class LinkServerService:Service() {
                     .put("stream",items.first().stream).put("columns","t_elapsed_ns,t_wall_ms,"+Schema.columns.getValue(items.first().stream))
                     .put("rows",JSONArray().also { a->items.forEach{a.put(JSONArray(listOf(it.idx)+it.values))} }).toString(),!items.first().persist)
             }
-            if(tick++%4==0) heartbeat()
+            val audio=Live.state.value.audio
+            if(audio.state=="recording")endpoint?.send(JSONObject().put("type","audio_meter").put("training_id",Live.state.value.captureId)
+                .put("elapsed",audio.updatedNs).put("wall",System.currentTimeMillis()).put("rms",audio.rms).put("peak",audio.peak)
+                .put("silenced",audio.silenced).put("envelope",JSONArray(audio.envelope)).toString(),true)
+            if(tick++%4==0) {heartbeat();DetectionReview.responses(this@LinkServerService).forEach {endpoint?.send(it)}}
         }
         handler.postDelayed(this,1000)
     } }
@@ -80,7 +84,7 @@ class LinkServerService:Service() {
         endpoint?.send(JSONObject().put("type","status").put("recording",live.active).put("session",live.session)
             .put("wall",System.currentTimeMillis()).put("battery",live.battery).put("health",live.health)
             .put("elapsed",SystemClock.elapsedRealtimeNanos())
-            .put("sensor_profile","multimodal_v4").put("motion_hz",25).put("protocol",4).put("remote_ready",RemoteReady.state.value).put("compact",live.captureId.isBlank() && getSharedPreferences("setup",MODE_PRIVATE).getBoolean("compact",true))
+            .put("sensor_profile","multimodal_v4").put("motion_hz",25).put("protocol",5).put("remote_ready",RemoteReady.state.value).put("compact",live.captureId.isBlank() && getSharedPreferences("setup",MODE_PRIVATE).getBoolean("compact",true))
             .put("training_id",live.captureId).put("activity",live.activity).put("seconds",live.seconds).put("duration_seconds",live.durationSeconds)
             .put("pending_training_id",TrainingInbox.pending.value?.id.orEmpty()).put("audio_state",live.audio.state)
             .put("audio_seconds",live.audio.seconds).put("audio_peak",live.audio.peak).put("audio_silenced",live.audio.silenced)
@@ -96,6 +100,8 @@ class LinkServerService:Service() {
     private fun request(text:String) {
         val j=JSONObject(text)
         when(j.getString("type")) {
+            "detection_prompt" -> DetectionReview.receive(this,j)
+            "detection_response_ack" -> DetectionReview.acknowledge(this,j.getString("id"))
             "clock_ping" -> {
                 val received=SystemClock.elapsedRealtimeNanos()
                 endpoint?.send(JSONObject().put("type","clock_pong").put("p1",j.getLong("p1"))

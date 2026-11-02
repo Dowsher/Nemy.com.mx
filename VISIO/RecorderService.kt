@@ -149,7 +149,7 @@ class RecorderService : Service(), SensorEventListener2, HealthSink {
                     handler.post { safe {
                         if(writer === out && !stopping) {
                             val id=UUID.randomUUID().toString()
-                            val detail=JSONObject().put("peak",peak).put("rms",rms).put("method","acoustic_impulse_demo_v1").put("human_label",false)
+                            val detail=JSONObject().put("peak",peak).put("rms",rms).put("method","acoustic_impulse_demo_v2").put("human_label",false)
                             out.write("marcadores",elapsed,listOf("audio_transient","CANDIDATE",id,detail.toString()))
                             PhoneBridge.notices.offer(JSONObject().put("type","audio_impulse").put("id",id).put("training_id",out.capture!!.id)
                                 .put("elapsed",elapsed).put("wall",out.wall(elapsed)).put("peak",peak).toString())

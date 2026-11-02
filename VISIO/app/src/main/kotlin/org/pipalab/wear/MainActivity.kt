@@ -23,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -53,10 +54,10 @@ object Permissions {
 class MainActivity : ComponentActivity() {
     private var permissionEpoch by mutableIntStateOf(0)
     private val permissions = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissionEpoch++ }
-    override fun onResume() { super.onResume(); permissionEpoch++; TrainingInbox.load(this) }
+    override fun onResume() { super.onResume(); permissionEpoch++; TrainingInbox.load(this); DetectionReview.load(this) }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        TrainingInbox.load(this)
+        TrainingInbox.load(this); DetectionReview.load(this)
         setContent { MaterialTheme { App() } }
     }
     private fun granted(p: String) = checkSelfPermission(p) == PackageManager.PERMISSION_GRANTED
@@ -70,17 +71,26 @@ class MainActivity : ComponentActivity() {
     }
     @Composable private fun App() {
         val live by Live.state.collectAsState()
+        val question by DetectionReview.pending.collectAsState()
         val ready by RemoteReady.state.collectAsState()
         val prefs=remember {getSharedPreferences("setup",MODE_PRIVATE)}
         var participant by rememberSaveable {mutableStateOf(prefs.getString("participant","P001") ?: "P001")}
         var setup by rememberSaveable {mutableStateOf(false)}
+        var screenTurns by rememberSaveable {mutableIntStateOf(prefs.getInt("display_quarter_turns",display?.rotation ?: 0))}
         val required=Permissions.foreground()+listOf(Manifest.permission.RECORD_AUDIO,Manifest.permission.BLUETOOTH_CONNECT,Manifest.permission.BLUETOOTH_ADVERTISE)
         val missing=remember(permissionEpoch){required.filterNot(::granted)}
         val green=Color(0xFFB2FF69)
-        Column(Modifier.fillMaxSize().background(Color.Black).verticalScroll(rememberScrollState()).padding(horizontal=26.dp,vertical=40.dp),
+        Column(Modifier.fillMaxSize().graphicsLayer { rotationZ=screenTurns*90f }.background(Color.Black).verticalScroll(rememberScrollState()).padding(horizontal=26.dp,vertical=40.dp),
             horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(10.dp)) {
             Text("Visio",color=green,fontSize=28.sp)
             Text("CAPTURADOR / NEMY",fontSize=11.sp)
+            question?.let {
+                Text("¿Fue un consumo?",color=green,fontSize=21.sp,textAlign=TextAlign.Center)
+                Text("Pregunta de entrenamiento. Patrón experimental, no confirmación automática.",fontSize=12.sp,textAlign=TextAlign.Center)
+                Big("SÍ, CONFIRMAR") {DetectionReview.answer(this@MainActivity,"confirmed")}
+                Big("NO, DESCARTAR") {DetectionReview.answer(this@MainActivity,"false_positive")}
+                Big("NO ESTOY SEGURO") {DetectionReview.answer(this@MainActivity,"unsure")}
+            }
             Text(if(live.active) "● GRABANDO" else if(ready) "LISTO PARA EL TELÉFONO" else "CAPTURA APAGADA",color=green,fontSize=16.sp,textAlign=TextAlign.Center)
             if(live.active) {
                 Text(live.activity,fontSize=18.sp,textAlign=TextAlign.Center)
@@ -106,6 +116,11 @@ class MainActivity : ComponentActivity() {
             Text("Audio y CSV se conservan aquí hasta copiarse al teléfono. Si Android reinicia la app, vuelve a activar el capturador.",fontSize=11.sp,textAlign=TextAlign.Center)
             Big(if(setup)"Cerrar ajustes" else "Ajustes") {setup=!setup}
             if(setup) {
+                Big("Girar pantalla 90°") {
+                    screenTurns=(screenTurns+1)%4;prefs.edit().putInt("display_quarter_turns",screenTurns).apply()
+                }
+                Big("Orientación del reloj") {startActivity(Intent(Settings.ACTION_SETTINGS))}
+                Text("General → Orientación: muñeca izquierda y botones hacia la mano. Los ejes crudos se conservan.",fontSize=11.sp,textAlign=TextAlign.Center)
                 Text("Código anónimo",fontSize=12.sp)
                 BasicTextField(participant,{participant=it.filter {c->c.isLetterOrDigit() && c.code<128 || c=='_' || c=='-'}.take(24)},singleLine=true,
                     textStyle=TextStyle(color=Color.White,fontSize=18.sp),modifier=Modifier.fillMaxWidth().padding(12.dp))

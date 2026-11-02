@@ -18,7 +18,7 @@ data class EventInfo(val id:String,val time:Long,val end:Long,val session:String
 data class Sample(val wall:Long,val elapsed:Long,val values:Map<String,String>,val source:String="raw",val file:String="",val index:Long=0)
 data class MinuteInfo(val stream:String,val minute:Long,val rows:Long,val first:Long,val last:Long,val stats:String,val quality:String,val source:String)
 data class MeasurementInfo(val id:String,val session:String,val kind:String,val start:Long,val end:Long,val available:Long,val status:String)
-class Store private constructor(context:Context): SQLiteOpenHelper(context,"pipalab.db",null,5) {
+class Store private constructor(context:Context): SQLiteOpenHelper(context,"pipalab.db",null,6) {
     val root=File(context.getExternalFilesDir(null),"archives").apply { mkdirs() }
     init { setWriteAheadLoggingEnabled(true) }
     override fun onCreate(db:SQLiteDatabase) {
@@ -33,8 +33,9 @@ class Store private constructor(context:Context): SQLiteOpenHelper(context,"pipa
         createLed(db)
         createSummaries(db)
         TrainingStore.create(db)
+        DetectionStore.create(db)
     }
-    override fun onUpgrade(db:SQLiteDatabase,old:Int,new:Int) { if(old<2) migrateAudit(db); if(old<3) createLed(db);if(old<4)createSummaries(db);if(old<5)TrainingStore.create(db) }
+    override fun onUpgrade(db:SQLiteDatabase,old:Int,new:Int) { if(old<2) migrateAudit(db); if(old<3) createLed(db);if(old<4)createSummaries(db);if(old<5)TrainingStore.create(db);if(old<6)DetectionStore.create(db) }
     private fun createSummaries(db:SQLiteDatabase) {
         db.execSQL("CREATE TABLE minute_stats(session TEXT,stream TEXT,minute INTEGER,rows INTEGER,first INTEGER,last INTEGER,stats TEXT,quality TEXT,source TEXT,PRIMARY KEY(session,stream,minute))")
         db.execSQL("CREATE TABLE measurement_windows(id TEXT PRIMARY KEY,session TEXT,kind TEXT,start INTEGER,end INTEGER,available INTEGER,status TEXT)")

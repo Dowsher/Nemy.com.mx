@@ -34,10 +34,10 @@ private val Danger=Color(0xFFFF7185)
 internal data class RawQuery(val session:String,val stream:String,val from:Long,val to:Long)
 internal fun sensorDescription(metric:Metric):String=when(metric.label) {
     "Pulso" -> "Latidos por minuto estimados por el sensor óptico. Aporta contexto fisiológico para comparar antes y después de un evento; por sí solo no identifica una actividad. Se excluyen las lecturas que el SDK marca inválidas."
-    "Movimiento" -> "El acelerómetro mide aceleración en tres ejes, incluida la gravedad. Ayuda a reconocer elevación, pausa y retorno de la muñeca. No mide tu ubicación ni guarda GPS."
-    "Giro" -> "El giroscopio mide la velocidad de rotación de la muñeca en tres ejes. Complementa al acelerómetro para distinguir trayectorias y pausas de un gesto."
+    "Movimiento","Acelerómetro" -> "El acelerómetro mide aceleración en tres ejes, incluida la gravedad. Ayuda a reconocer elevación, pausa y retorno de la muñeca. No mide tu ubicación ni guarda GPS."
+    "Giro","Giroscopio" -> "El giroscopio mide la velocidad de rotación de la muñeca en tres ejes. Complementa al acelerómetro para distinguir trayectorias y pausas de un gesto."
     "IBI" -> "Tiempo entre latidos, en milisegundos. Sirve para estudiar cambios y variabilidad con ventanas suficientes y buena calidad. El promedio usa todos los intervalos válidos, no solo el último; se asignan al minuto del lote de origen."
-    "Piel" -> "Temperatura superficial de la piel y del entorno del sensor. Aporta una tendencia lenta; el contacto y el ambiente influyen. No equivale a temperatura corporal central y no está disponible a cada instante."
+    "Piel","Temperatura de piel" -> "Temperatura superficial de la piel y del entorno del sensor. Aporta una tendencia lenta; el contacto y el ambiente influyen. No equivale a temperatura corporal central y no está disponible a cada instante."
     "EDA" -> "Conductancia eléctrica de la piel, relacionada con la actividad de las glándulas sudoríparas. Puede aportar contexto de activación, sin identificar su causa. Este Galaxy Watch no ofrece EDA al SDK."
     "PPG","PPG IR","PPG rojo" -> "Señal óptica obtenida con luz verde, infrarroja o roja. Permite estudiar la forma de la onda y artefactos por movimiento. Estos valores son cuentas del sensor; no representan por sí mismos oxígeno en sangre."
     "Uso" -> "Indica si el reloj detecta contacto con la muñeca. Evita interpretar movimientos o señales ópticas cuando está fuera del cuerpo. 1 = puesto; 0 = fuera; desconocido no se promedia."

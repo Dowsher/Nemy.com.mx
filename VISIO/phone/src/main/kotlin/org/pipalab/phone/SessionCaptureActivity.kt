@@ -65,6 +65,7 @@ class SessionCaptureActivity:ComponentActivity() {
     private fun granted(p:String)=checkSelfPermission(p)==PackageManager.PERMISSION_GRANTED
     override fun onCreate(savedInstanceState:Bundle?) {
         super.onCreate(savedInstanceState)
+        demo=getSharedPreferences("prefs",MODE_PRIVATE).getBoolean("audio_demo",false)
         store=Store.get(this);media=SessionMedia(store)
         val id=intent.getStringExtra("id").orEmpty()
         row=TrainingStore(store).records().find {it.id==id} ?: run {finish();return}
@@ -123,7 +124,7 @@ class SessionCaptureActivity:ComponentActivity() {
                     SurfaceCard {
                         Row {
                             Text("Demo sonido → LED",color=Mint,modifier=Modifier.weight(1f))
-                            Switch(checked=demo,enabled=demo || (esp.ready && link.connected && link.audioState=="recording"),onCheckedChange={enabled->
+                            Switch(checked=demo,onCheckedChange={enabled->
                                 demo=enabled;getSharedPreferences("prefs",MODE_PRIVATE).edit().putBoolean("audio_demo",enabled).apply()
                             })
                         }
@@ -218,7 +219,7 @@ class SessionCaptureActivity:ComponentActivity() {
     private fun stopCapture(reason:String) {
         if(!gate.stop())return
         phase=gate.phase;stopReason=reason;voice.stop()
-        demo=false;getSharedPreferences("prefs",MODE_PRIVATE).edit().putBoolean("audio_demo",false).apply()
+        // The preference persists; the receiver only acts on fresh audio from an active session.
         media.event(row.id,"stop_requested",reason);media.update(row.id){it.put("state","saving").put("stop_reason",reason)}
         // Tombstone is sent even if camera's Start callback has not arrived; delayed starts cannot reopen this id.
         command("TRAINING_STOP")

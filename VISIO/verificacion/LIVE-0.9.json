@@ -1,0 +1,41 @@
+{
+  "date": "2026-11-02",
+  "android_tests": {
+    "core": 32,
+    "phone": 13,
+    "app": 5
+  },
+  "python_reference_tests": 3,
+  "zoom_tests": 2,
+  "total_software_tests": 55,
+  "lint": "0 errors in phone and watch; advisory warnings remain",
+  "reference_source_sha256": "7319dea21fb3e94c46f1f84d469c417b6c2bd298382d0f05c8ad2150e224d55d",
+  "on_device_synthetic_parity": {
+    "passed": true,
+    "numeric_comparisons": 3221,
+    "seconds": 0.667206250000163,
+    "gestures": 43,
+    "source_sha256": "7319dea21fb3e94c46f1f84d469c417b6c2bd298382d0f05c8ad2150e224d55d",
+    "synthetic_test_only": true
+  },
+  "installation": {
+    "phone": {
+      "version": "0.9.0-live",
+      "apk_sha256": "f15fe005bd869668d38cfa6d4ca49bda54b8d6d75f3d90df8b566d092587445c",
+      "installed_hash_matches": true,
+      "existing_private_files_unchanged": 10,
+      "existing_external_files_unchanged": 260
+    },
+    "watch": {
+      "version": "0.7.0-feedback",
+      "apk_sha256": "13e99623317ee1b77fbe0c368b6b5b9c6d1b58a5fb5875a8940cacfc736a27ba",
+      "installed_hash_matches": true,
+      "existing_private_files_unchanged": 5,
+      "existing_external_files_unchanged": 252
+    }
+  },
+  "runtime_ui": "Phone dashboard and watch ready mode observed; encrypted phone-watch BLE reconnected",
+  "orientation": "Left wrist, buttons toward hand. Samsung firmware ignores requested app orientation; visual rotation compensation plus persistent 90-degree adjustment. Raw sensor axes unchanged.",
+  "physical_capture_and_snap_led_trial": "Left to user; no new audio, video or sensor session created by validation",
+  "model": "Original BootstrapScorer, released=false; no validated accuracy claim; prompts use explicit experimental review sampling"
+}

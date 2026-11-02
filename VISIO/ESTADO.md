@@ -1,9 +1,9 @@
-# Entrega Visio 0.8 · 1 de noviembre de 2026
+# Estado · 2 de noviembre de 2026
 
-Teléfono 0.8.0-sessions y reloj 0.6.0-capture compilados. 47 pruebas Android y 2 de Zoom aprobadas. Lint: cero errores, con advertencias e incompatibilidad de comprobaciones Lifecycle de la dependencia. Los resultados están en [verificacion/SESIONES-0.8.json](verificacion/SESIONES-0.8.json).
+Teléfono 0.9.0-live y Wear 0.7.0-feedback compilados e instalados; hashes comprobados. 50 pruebas Android, 3 de referencia Python y 2 del capturador Zoom aprobadas. Lint sin errores. En el teléfono real coincidieron 3,221 valores numéricos con la referencia sobre un fixture sintético de diez minutos (43 gestos, ~0.67 s de cálculo).
 
-Control por acción/corte, cámara frontal, cuatro señales del reloj, WAV, revisión, reproducción aproximada, ZIP individual y protección frente a órdenes tardías/repetidas implementados. Historial y claves preservados por actualizaciones aditivas; no se cambia SQLite 5.
+Se conservaron 260 archivos externos del teléfono y 252 del reloj, además de sus archivos privados durante las actualizaciones. SQLite 6 añade tablas de detecciones/revisiones sin borrar el historial. Se comprobó interfaz y enlace cifrado. Respaldo privado conservado fuera del repositorio.
 
-**No instalado ni probado físicamente en esta entrega.** No había dispositivos conectados. Pendiente del usuario: permisos y modo listo del reloj, inicio/cierre por voz, cámara frontal real, calidad de pulso/temperatura/IMU/audio y sincronización. No se afirma precisión de detección ni alineación exacta por frame.
+El detector conserva BootstrapScorer released=false. Las preguntas recogen etiquetas de candidatos, no demuestran precisión validada. Los colores no son límites clínicos. El audio impulsa una demo acústica; no reconoce exclusivamente chasquidos/encendedores. La calibración anatómica y la validación física con nuevas actividades/LED siguen pendientes del usuario. No se grabó una sesión nueva para estas comprobaciones.
 
-El modelo local existente todavía usa acelerómetro, pulso y temperatura. El audio, giroscopio y video quedan como datos para entrenamiento multimodal posterior. La placa y el firmware LED no se modificaron.
+[Guía de uso y límites](DETECTOR-EN-VIVO.md) · [Resultados](verificacion/LIVE-0.9.json).

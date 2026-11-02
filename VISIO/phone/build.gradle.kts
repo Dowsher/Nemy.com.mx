@@ -1,14 +1,15 @@
-plugins { id("com.android.application"); id("org.jetbrains.kotlin.plugin.compose") }
+plugins { id("com.android.application"); id("org.jetbrains.kotlin.plugin.compose"); id("com.chaquo.python") }
 android {
     namespace = "org.pipalab.phone"
     compileSdk = 37
-    defaultConfig { applicationId = "org.pipalab.wear"; minSdk = 31; targetSdk = 36; versionCode = 11; versionName = "0.8.0-sessions" }
+    defaultConfig { applicationId = "org.pipalab.wear"; minSdk = 31; targetSdk = 36; versionCode = 12; versionName = "0.9.0-live"; ndk { abiFilters += "arm64-v8a" } }
     buildFeatures { compose = true; buildConfig = true }
     testOptions { unitTests.isIncludeAndroidResources = true }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     packaging { resources.excludes += "/META-INF/{AL2.0,LGPL2.1}" }
 }
 kotlin { compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) } }
+chaquopy { defaultConfig { version = "3.11"; System.getenv("VISIO_BUILD_PYTHON")?.let { buildPython(it) }; pip { install("numpy==1.26.2") } } }
 dependencies {
     implementation(project(":core"))
     implementation("androidx.camera:camera-camera2:1.6.2")
